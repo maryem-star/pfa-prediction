@@ -1,1 +1,4 @@
- 
+.env 
+__pycache__/ 
+*.pyc 
+alembic/versions/__pycache__/ 
