@@ -1,4 +1,20 @@
-.env 
-__pycache__/ 
-*.pyc 
-alembic/versions/__pycache__/ 
+.env
+__pycache__/
+*.pyc
+alembic/versions/__pycache__/
+
+# ML artifacts (large binary files)
+models/*.pkl
+
+# Processed data (re-generated from raw)
+data/processed/
+
+# Generated charts
+docs/*.png
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+notebooks/.ipynb_checkpoints/
+
+# Pytest cache
+.pytest_cache/
