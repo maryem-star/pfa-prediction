@@ -1,374 +1,390 @@
 """
-Interface 13 — Analyse Predictive Avancee (What-if Analysis)
-Streamlit app: simulation interactive, modification des parametres en temps reel
+Interface 13 — What-if: Analyse Predictive Avancee
+===================================================
+Conditions reelles de reussite:
+    ✅ Moyenne Annuelle >= 12/20
+    ✅ Modules Non Valides <= 3
+    ✅ PFA >= 12/20
+
+Zones de danger:
+    ⚠️ Absences S1 > 10h  |  Absences S2 > 10h
+    ⚠️ Redoublant = 1
+
 Lancer: streamlit run src/interface_13_whatif.py
 """
 
-import sys
-import os
+import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib
-matplotlib.use("Agg")
+import matplotlib; matplotlib.use("Agg")
 import joblib
 
-# ─── Config page ──────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Interface 13 - What-if Analysis",
+    page_title="Interface 13 — What-if Analysis",
     page_icon="🔮",
     layout="wide",
 )
 
-# ─── CSS ──────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-    body { background-color: #0f1117; }
     .title-main {
-        font-size: 2.2rem; font-weight: 800;
+        font-size: 2.1rem; font-weight: 800;
         background: linear-gradient(90deg, #9b59b6, #3498db, #2ecc71);
         -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     }
     .subtitle { color: #a0a8c0; margin-bottom: 1.5rem; }
-    .result-box {
-        padding: 24px; border-radius: 16px; text-align: center;
-        margin: 16px 0; font-size: 1.1rem;
-    }
-    .vert  { background: linear-gradient(135deg,#155724,#1e6e34); border: 2px solid #2ecc71; }
-    .jaune { background: linear-gradient(135deg,#856404,#a07800); border: 2px solid #f39c12; }
-    .rouge { background: linear-gradient(135deg,#721c24,#9e2d39); border: 2px solid #e74c3c; }
-    .couleur-label { font-size: 3rem; font-weight: 900; letter-spacing: 2px; }
-    .proba-val { font-size: 2rem; font-weight: 700; margin-top: 8px; }
-    .risk-item {
-        background: #1e2130; border-left: 3px solid #e15759;
-        padding: 8px 14px; border-radius: 6px; margin: 6px 0;
-        color: #fff;
-    }
-    .rec-item {
-        background: #1e2130; border-left: 3px solid #59a14f;
-        padding: 8px 14px; border-radius: 6px; margin: 6px 0;
-        color: #fff;
-    }
-    .section-title { font-size: 1.1rem; font-weight: 700; color: #a0c4ff; margin: 1rem 0 0.5rem 0; }
-    .stSlider > div > div { color: white; }
+    .cond-ok   { background:#155724; border:1.5px solid #2ecc71; border-radius:8px; padding:8px 14px; color:#fff; margin:4px 0; }
+    .cond-fail { background:#721c24; border:1.5px solid #e74c3c; border-radius:8px; padding:8px 14px; color:#fff; margin:4px 0; }
+    .danger-box{ background:#856404; border:1.5px solid #f39c12; border-radius:8px; padding:8px 14px; color:#fff; margin:4px 0; }
+    .safe-box  { background:#155724; border:1.5px solid #2ecc71; border-radius:8px; padding:8px 14px; color:#fff; margin:4px 0; }
+    .vert   { background:linear-gradient(135deg,#155724,#1a7a30); border:2px solid #2ecc71; border-radius:14px; padding:22px; text-align:center; }
+    .jaune  { background:linear-gradient(135deg,#856404,#a07800); border:2px solid #f39c12; border-radius:14px; padding:22px; text-align:center; }
+    .rouge  { background:linear-gradient(135deg,#721c24,#9e2d39); border:2px solid #e74c3c; border-radius:14px; padding:22px; text-align:center; }
+    .badge  { font-size:2.8rem; font-weight:900; letter-spacing:2px; }
+    .proba  { font-size:1.8rem; font-weight:700; margin-top:8px; }
+    .remarque { background:#1e2130; border-left:3px solid #a0c4ff; padding:8px 14px; border-radius:6px; margin:5px 0; color:#dde; font-size:0.95rem; }
+    .risk-item{ background:#1e2130; border-left:3px solid #e15759; padding:8px 14px; border-radius:6px; margin:5px 0; color:#fff; }
+    .rec-item { background:#1e2130; border-left:3px solid #59a14f; padding:8px 14px; border-radius:6px; margin:5px 0; color:#fff; }
+    .profil-label { font-size:1.2rem; font-weight:700; }
+    .section-hdr { font-size:1rem; font-weight:700; color:#a0c4ff; margin:1rem 0 0.4rem 0; }
 </style>
 """, unsafe_allow_html=True)
 
-# ─── Chemins ──────────────────────────────────────────────────────────────────
 BASE_DIR    = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MODELS_PATH = os.path.join(BASE_DIR, "models")
 
-FILIERE_LABELS = {
-    "ISIC - Ingenierie Systemes":     1,
-    "CCN - Cybersecurite":            2,
-    "GEE - Genie Electrique":         3,
-    "Genie Civil":                    4,
-    "Genie Industriel":               5,
-    "ITE - Genie Informatique":       6,
+FILIERES = {
+    "ISIC — Systemes d Information": 1,
+    "CCN — Cybersecurite":           2,
+    "GEE — Genie Electrique":        3,
+    "Genie Civil":                   4,
+    "Genie Industriel":              5,
+    "ITE — Genie Informatique":      6,
 }
 
-MODELE_LABELS = ["LogisticRegression", "RandomForest", "SVM"]
+PROFIL_EMOJI = {0: "🟢", 1: "🔵", 2: "🟡", 3: "🔴"}
+PROFIL_LABELS = {
+    0: "Tres assidu",
+    1: "Assidu",
+    2: "Comportement preoccupant",
+    3: "Absenteiste chronique",
+}
 
-# ─── Chargement ───────────────────────────────────────────────────────────────
 @st.cache_resource
 def load_models():
     scaler        = joblib.load(os.path.join(MODELS_PATH, "scaler.pkl"))
     feature_names = joblib.load(os.path.join(MODELS_PATH, "feature_names.pkl"))
     models = {}
-    for name in MODELE_LABELS:
-        p = os.path.join(MODELS_PATH, f"{name}.pkl")
+    for nm in ["LogisticRegression", "RandomForest", "SVM"]:
+        p = os.path.join(MODELS_PATH, f"{nm}.pkl")
         if os.path.exists(p):
-            models[name] = joblib.load(p)
+            models[nm] = joblib.load(p)
     return scaler, feature_names, models
 
 
-def predict_live(features_dict, model_name, scaler, feature_names, models):
-    clf = models[model_name]
-    X = np.array([[features_dict.get(f, 0.0) for f in feature_names]])
+def live_predict(fd: dict, model_name: str, scaler, feature_names, models):
+    clf  = models[model_name]
+    X    = np.array([[fd.get(f, 0.0) for f in feature_names]])
     X_sc = scaler.transform(X)
     label_num = clf.predict(X_sc)[0]
     proba     = float(clf.predict_proba(X_sc)[0][1])
 
-    # Moyenne estimee
-    note_predite = proba * 20.0
+    # Estimer note
+    moy_s1 = fd.get("Moyenne_S1", 10)
+    moy_s2 = fd.get("Moyenne_S2", moy_s1)
+    note   = proba * 20 * 0.7 + (moy_s1 + moy_s2) / 2 * 0.3
 
-    # Couleur
-    if note_predite >= 14 or proba >= 0.85:
+    # Couleur selon vraies conditions
+    if note >= 12 and proba >= 0.70:
         couleur = "VERT"
-    elif note_predite >= 10 or proba >= 0.50:
-        couleur = "JAUNE"
-    else:
+    elif note < 12 or proba < 0.40:
         couleur = "ROUGE"
-
-    # Facteurs de risque
-    risques = []
-    abs_s1 = features_dict.get("Absences_S1", 0)
-    abs_s2 = features_dict.get("Absences_S2", 0)
-    total_abs = abs_s1 + abs_s2
-    moy_s1 = features_dict.get("Moyenne_S1", 10)
-    modules_nv = features_dict.get("Modules_Non_Valides", 0)
-    progression = features_dict.get("Moyenne_S2", moy_s1) - moy_s1
-
-    if total_abs > 30:
-        risques.append(f"Absences elevees ({total_abs}h au total)")
-    if moy_s1 < 10:
-        risques.append(f"Moyenne S1 insuffisante ({moy_s1:.1f}/20)")
-    if modules_nv > 1:
-        risques.append(f"{int(modules_nv)} modules non valides")
-    if progression < -1.5:
-        risques.append(f"Regression entre S1 et S2 ({progression:+.1f})")
-    if features_dict.get("Redoublant", 0) == 1:
-        risques.append("Etudiant redoublant")
-    if not risques:
-        risques = ["Aucun risque majeur identifie"]
-
-    # Recommandations
-    recs = []
-    if couleur == "ROUGE":
-        recs = [
-            "Intervention urgente: contacter un tuteur ou conseiller",
-            "Renforcement intensif dans les modules non valides",
-            "Plan de rattrapage personnalise",
-            "Suivi hebdomadaire obligatoire",
-        ]
-    elif couleur == "JAUNE":
-        recs = [
-            "Encourager la participation aux seances de tutorat",
-            "Surveiller les absences et intervenir si necessaire",
-            "Renforcement cible dans les modules en difficulte",
-        ]
     else:
-        recs = [
-            "Continuer sur cette lancee, excellent parcours",
-            "Proposer des projets enrichissants ou avances",
-        ]
+        couleur = "JAUNE"
 
-    return {
-        "label":       "Reussi" if label_num == 1 else "Echec",
-        "probabilite": round(proba, 4),
-        "note_predite": round(note_predite, 2),
-        "couleur":     couleur,
-        "risques":     risques,
-        "recs":        recs,
-    }
+    return label_num, proba, note, couleur
 
 
-# ─── Header ───────────────────────────────────────────────────────────────────
-st.markdown('<div class="title-main">Interface 13 — What-if: Analyse Predictive Avancee</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">Simulez et modifiez les parametres d un etudiant en temps reel pour voir evoluer la prediction</div>', unsafe_allow_html=True)
+# ─── Header ──────────────────────────────────────────────────────────────────
+st.markdown('<div class="title-main">Interface 13 — What-if: Simulation Predictive</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">Modifiez les parametres en temps reel — Conditions reelles: Moy >= 12 | Modules NV <= 3 | PFA >= 12</div>', unsafe_allow_html=True)
 
-with st.spinner("Chargement des modeles..."):
-    try:
-        scaler, feature_names, models = load_models()
-    except Exception as e:
-        st.error(f"Modeles non disponibles: {e}")
-        st.info("Lancez d'abord: python -m src.ml_models.train")
-        st.stop()
+try:
+    scaler, feature_names, models = load_models()
+except Exception as e:
+    st.error(f"Modeles non disponibles: {e}")
+    st.info("Lancez: python -m src.ml_models.train")
+    st.stop()
 
-# ─── Layout: Sidebar gauche + Resultats droite ────────────────────────────────
-col_inputs, col_results = st.columns([2, 1])
+col_inp, col_res = st.columns([2, 1], gap="large")
 
-with col_inputs:
-    st.markdown("### Parametres de l'etudiant")
+# ══════════════════════ COLONNE GAUCHE: INPUTS ════════════════════════════════
+with col_inp:
+    st.markdown("### Profil de l'etudiant")
 
-    # Modele + Filiere
-    c1, c2 = st.columns(2)
+    r1, r2 = st.columns(2)
+    with r1: modele = st.selectbox("Modele ML", list(models.keys()), index=1)
+    with r2:
+        fil_label = st.selectbox("Filiere", list(FILIERES.keys()))
+        filiere_code = FILIERES[fil_label]
+
+    # ── SEMESTRE 1 ──────────────────────────────────────────────────────
+    st.markdown('<div class="section-hdr">Semestre 1</div>', unsafe_allow_html=True)
+    a1, a2 = st.columns(2)
+    with a1:
+        abs_s1      = st.slider("Absences S1 (heures)", 0, 80, 5)
+        mod_s1_1    = st.slider("Maths / Module principal 1", 0.0, 20.0, 13.0, 0.5)
+        mod_s1_2    = st.slider("Module S1 (2)", 0.0, 20.0, 12.0, 0.5)
+        mod_s1_3    = st.slider("Module S1 (3)", 0.0, 20.0, 12.0, 0.5)
+    with a2:
+        mod_s1_4    = st.slider("Module S1 (4)", 0.0, 20.0, 12.0, 0.5)
+        mod_s1_5    = st.slider("Module S1 (5)", 0.0, 20.0, 12.0, 0.5)
+        anglais_1   = st.slider("Anglais Tech. 1", 0.0, 20.0, 13.0, 0.5)
+        francais_1  = st.slider("Francais Pro. 1", 0.0, 20.0, 13.0, 0.5)
+
+    moy_s1 = round(np.mean([mod_s1_1,mod_s1_2,mod_s1_3,mod_s1_4,mod_s1_5,anglais_1,francais_1]),2)
+    color_moy_s1 = "#2ecc71" if moy_s1 >= 12 else "#f39c12" if moy_s1 >= 10 else "#e74c3c"
+    st.markdown(f"Moyenne S1 calculee: <b style='color:{color_moy_s1}'>{moy_s1:.2f}/20</b>", unsafe_allow_html=True)
+
+    # ── SEMESTRE 2 ──────────────────────────────────────────────────────
+    st.markdown('<div class="section-hdr">Semestre 2</div>', unsafe_allow_html=True)
+    b1, b2 = st.columns(2)
+    with b1:
+        abs_s2      = st.slider("Absences S2 (heures)", 0, 80, 5)
+        mod_s2_1    = st.slider("Maths / Module principal 2", 0.0, 20.0, 13.0, 0.5)
+        mod_s2_2    = st.slider("Module S2 (2)", 0.0, 20.0, 12.0, 0.5)
+        mod_s2_3    = st.slider("Module S2 (3)", 0.0, 20.0, 12.0, 0.5)
+    with b2:
+        mod_s2_4    = st.slider("Module S2 (4)", 0.0, 20.0, 12.0, 0.5)
+        mod_s2_5    = st.slider("Module S2 (5)", 0.0, 20.0, 12.0, 0.5)
+        anglais_2   = st.slider("Anglais Tech. 2", 0.0, 20.0, 13.0, 0.5)
+        francais_2  = st.slider("Francais Pro. 2", 0.0, 20.0, 13.0, 0.5)
+
+    # ── PFA + Autres ────────────────────────────────────────────────────
+    st.markdown('<div class="section-hdr">PFA et Informations complementaires</div>', unsafe_allow_html=True)
+    c1, c2, c3 = st.columns(3)
     with c1:
-        modele_choisi = st.selectbox("Modele ML", list(models.keys()), index=0)
+        pfa_2      = st.slider("Note PFA 2", 0.0, 20.0, 14.0, 0.5)
     with c2:
-        filiere_label = st.selectbox("Filiere", list(FILIERE_LABELS.keys()), index=0)
-        filiere_code = FILIERE_LABELS[filiere_label]
+        modules_nv = st.slider("Modules Non Valides", 0, 10, 0)
+    with c3:
+        redoublant = 1 if st.checkbox("Redoublant", value=False) else 0
 
-    st.markdown('<div class="section-title">Semestre 1</div>', unsafe_allow_html=True)
-    cs1a, cs1b = st.columns(2)
-    with cs1a:
-        abs_s1     = st.slider("Absences S1 (heures)", 0, 80, 5)
-        module_s1_1 = st.slider("Mathematiques 1", 0.0, 20.0, 12.0, 0.5)
-        module_s1_2 = st.slider("Module principal S1 (2)", 0.0, 20.0, 12.0, 0.5)
-        module_s1_3 = st.slider("Module principal S1 (3)", 0.0, 20.0, 11.0, 0.5)
-    with cs1b:
-        module_s1_4 = st.slider("Module principal S1 (4)", 0.0, 20.0, 12.0, 0.5)
-        module_s1_5 = st.slider("Module principal S1 (5)", 0.0, 20.0, 13.0, 0.5)
-        anglais_1   = st.slider("Anglais Technique 1", 0.0, 20.0, 13.0, 0.5)
-        francais_1  = st.slider("Francais Professionnel 1", 0.0, 20.0, 13.0, 0.5)
+    moy_s2 = round(np.mean([mod_s2_1,mod_s2_2,mod_s2_3,mod_s2_4,mod_s2_5,anglais_2,francais_2,pfa_2]),2)
+    moy_ann = round((moy_s1 + moy_s2) / 2, 2)
+    color_moy_s2 = "#2ecc71" if moy_s2 >= 12 else "#f39c12" if moy_s2 >= 10 else "#e74c3c"
+    color_moy_ann = "#2ecc71" if moy_ann >= 12 else "#f39c12" if moy_ann >= 10 else "#e74c3c"
+    st.markdown(
+        f"Moyenne S2: <b style='color:{color_moy_s2}'>{moy_s2:.2f}/20</b> &nbsp;|&nbsp; "
+        f"Moyenne Annuelle estimee: <b style='color:{color_moy_ann}'>{moy_ann:.2f}/20</b>",
+        unsafe_allow_html=True
+    )
 
-    moy_s1 = round(np.mean([module_s1_1, module_s1_2, module_s1_3, module_s1_4, module_s1_5, anglais_1, francais_1]), 2)
-    st.info(f"Moyenne S1 estimee automatiquement: **{moy_s1:.2f}/20**")
+# ── Construction du vecteur features ─────────────────────────────────────────
+total_abs   = abs_s1 + abs_s2
+progression = moy_s2 - moy_s1
+danger_abs  = 1 if (abs_s1 > 10 or abs_s2 > 10) else 0
+danger_red  = redoublant
+score_danger= danger_abs + danger_red
 
-    st.markdown('<div class="section-title">Semestre 2</div>', unsafe_allow_html=True)
-    cs2a, cs2b = st.columns(2)
-    with cs2a:
-        abs_s2     = st.slider("Absences S2 (heures)", 0, 80, 5)
-        module_s2_1 = st.slider("Mathematiques 2", 0.0, 20.0, 12.0, 0.5)
-        module_s2_2 = st.slider("Module principal S2 (2)", 0.0, 20.0, 12.0, 0.5)
-        module_s2_3 = st.slider("Module principal S2 (3)", 0.0, 20.0, 11.0, 0.5)
-    with cs2b:
-        module_s2_4 = st.slider("Module principal S2 (4)", 0.0, 20.0, 12.0, 0.5)
-        module_s2_5 = st.slider("Module principal S2 (5)", 0.0, 20.0, 13.0, 0.5)
-        anglais_2   = st.slider("Anglais Technique 2", 0.0, 20.0, 13.0, 0.5)
-        francais_2  = st.slider("Francais Professionnel 2", 0.0, 20.0, 13.0, 0.5)
+if total_abs <= 5:    profil_comp = 0
+elif total_abs <= 15: profil_comp = 1
+elif total_abs <= 30: profil_comp = 2
+else:                  profil_comp = 3
 
-    moy_s2 = round(np.mean([module_s2_1, module_s2_2, module_s2_3, module_s2_4, module_s2_5, anglais_2, francais_2]), 2)
-
-    st.markdown('<div class="section-title">PFA & Autres</div>', unsafe_allow_html=True)
-    cp1, cp2, cp3 = st.columns(3)
-    with cp1:
-        pfa_2          = st.slider("Note PFA 2", 0.0, 20.0, 14.0, 0.5)
-    with cp2:
-        modules_nv     = st.slider("Modules Non Valides", 0, 8, 0)
-    with cp3:
-        redoublant     = 1 if st.checkbox("Redoublant", value=False) else 0
-
-    moy_s2 = round(np.mean([module_s2_1, module_s2_2, module_s2_3, module_s2_4, module_s2_5, anglais_2, francais_2, pfa_2]), 2)
-    st.info(f"Moyenne S2 estimee automatiquement: **{moy_s2:.2f}/20**")
-
-# ─── Construction du vecteur features ────────────────────────────────────────
-features_dict = {
+fd = {
     "Absences_S1":        float(abs_s1),
-    "Module_S1_1":        module_s1_1,
-    "Module_S1_2":        module_s1_2,
-    "Module_S1_3":        module_s1_3,
-    "Module_S1_4":        module_s1_4,
-    "Module_S1_5":        module_s1_5,
-    "Anglais_Tech_1":     anglais_1,
-    "Francais_Pro_1":     francais_1,
+    "Module_S1_1":        mod_s1_1, "Module_S1_2": mod_s1_2,
+    "Module_S1_3":        mod_s1_3, "Module_S1_4": mod_s1_4,
+    "Module_S1_5":        mod_s1_5,
+    "Anglais_Tech_1":     anglais_1, "Francais_Pro_1": francais_1,
     "Moyenne_S1":         moy_s1,
     "Absences_S2":        float(abs_s2),
-    "Module_S2_1":        module_s2_1,
-    "Module_S2_2":        module_s2_2,
-    "Module_S2_3":        module_s2_3,
-    "Module_S2_4":        module_s2_4,
-    "Module_S2_5":        module_s2_5,
-    "Anglais_Tech_2":     anglais_2,
-    "Francais_Pro_2":     francais_2,
+    "Module_S2_1":        mod_s2_1, "Module_S2_2": mod_s2_2,
+    "Module_S2_3":        mod_s2_3, "Module_S2_4": mod_s2_4,
+    "Module_S2_5":        mod_s2_5,
+    "Anglais_Tech_2":     anglais_2, "Francais_Pro_2": francais_2,
     "PFA_2":              pfa_2,
     "Modules_Non_Valides": float(modules_nv),
     "Redoublant":         float(redoublant),
     "Filiere_Code":       float(filiere_code),
-    "Progression":        moy_s2 - moy_s1,
-    "Total_Absences":     float(abs_s1 + abs_s2),
-    "Moy_Module1":        (module_s1_1 + module_s2_1) / 2,
+    "Danger_Absences":    float(danger_abs),
+    "Danger_Redoublant":  float(danger_red),
+    "Score_Danger":       float(score_danger),
+    "Profil_Comportement": float(profil_comp),
+    "Progression":        progression,
+    "Total_Absences":     float(total_abs),
+    "Moy_Module1":        (mod_s1_1 + mod_s2_1) / 2,
+    "Moyenne_S2":         moy_s2,
+    "Moyenne_Annuelle":   moy_ann,
 }
 
-# ─── Prediction en temps reel ─────────────────────────────────────────────────
-result = predict_live(features_dict, modele_choisi, scaler, feature_names, models)
+label_num, proba, note, couleur = live_predict(fd, modele, scaler, feature_names, models)
 
-with col_results:
+# ══════════════════════ COLONNE DROITE: RESULTATS ════════════════════════════
+with col_res:
     st.markdown("### Prediction en Temps Reel")
 
-    # Couleur badge
-    couleur_css = result["couleur"].lower()
-    emoji = {"VERT": "🟢", "JAUNE": "🟡", "ROUGE": "🔴"}[result["couleur"]]
+    emoji_c = {"VERT":"🟢","JAUNE":"🟡","ROUGE":"🔴"}[couleur]
+    css_c   = couleur.lower()
     st.markdown(f"""
-    <div class="result-box {couleur_css}">
-        <div class="couleur-label">{emoji} {result['couleur']}</div>
-        <div class="proba-val">Probabilite de reussite<br><b>{result['probabilite']*100:.1f}%</b></div>
-        <div style="margin-top:10px; font-size:1.1rem;">
-            Note predite: <b>{result['note_predite']:.1f}/20</b><br/>
-            Decision: <b>{result['label']}</b>
+    <div class="{css_c}">
+        <div class="badge">{emoji_c} {couleur}</div>
+        <div class="proba">Prob. reussite: <b>{proba*100:.1f}%</b></div>
+        <div style="margin-top:8px;font-size:1.1rem;">
+            Note estimee: <b>{note:.1f}/20</b><br>
+            Decision: <b>{"Reussi" if label_num==1 else "Echec"}</b>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-    # Jauge probabilite
-    fig_gauge, ax = plt.subplots(figsize=(5, 1.5), facecolor="#1e2130")
-    ax.set_facecolor("#1e2130")
-    proba = result["probabilite"]
-    ax.barh([0], [1], color="#333", height=0.5, left=0)
-    color_bar = "#2ecc71" if couleur_css == "vert" else "#f39c12" if couleur_css == "jaune" else "#e74c3c"
-    ax.barh([0], [proba], color=color_bar, height=0.5, left=0)
-    ax.axvline(x=0.5, color="white", linestyle="--", linewidth=1.5, alpha=0.5)
-    ax.set_xlim(0, 1); ax.set_yticks([]); ax.set_xticks([0, 0.25, 0.5, 0.75, 1.0])
-    ax.set_xticklabels(["0%", "25%", "50%", "75%", "100%"], color="white", fontsize=9)
-    ax.set_title("Probabilite de reussite", color="white", fontsize=10, fontweight="bold")
-    ax.spines[:].set_visible(False)
-    plt.tight_layout()
-    st.pyplot(fig_gauge)
-    plt.close(fig_gauge)
+    # ── 3 Conditions de reussite ─────────────────────────────────────────
+    st.markdown('<div class="section-hdr">Verification des 3 conditions</div>', unsafe_allow_html=True)
 
-    # Stats rapides
-    st.markdown('<div class="section-title">Resume des entrees</div>', unsafe_allow_html=True)
-    st.markdown(f"""
-    - Absences totales: **{abs_s1 + abs_s2}h**
-    - Moyenne S1: **{moy_s1:.2f}/20**
-    - Moyenne S2: **{moy_s2:.2f}/20**
-    - Progression: **{moy_s2 - moy_s1:+.2f}**
-    - PFA: **{pfa_2:.1f}/20**
-    """)
+    cond_moy = moy_ann >= 12
+    cond_mod = modules_nv <= 3
+    cond_pfa = pfa_2 >= 12
 
-    # Facteurs de risque
-    st.markdown('<div class="section-title">Facteurs de risque detectes</div>', unsafe_allow_html=True)
-    for r in result["risques"]:
-        st.markdown(f'<div class="risk-item">⚠️ {r}</div>', unsafe_allow_html=True)
+    def cond_row(label, ok, detail=""):
+        icon = "✅" if ok else "❌"
+        css  = "cond-ok" if ok else "cond-fail"
+        return f'<div class="{css}">{icon} {label}{f" ({detail})" if detail else ""}</div>'
+
+    st.markdown(cond_row("Moyenne Annuelle >= 12", cond_moy, f"{moy_ann:.2f}/20"), unsafe_allow_html=True)
+    st.markdown(cond_row("Modules Non Valides <= 3", cond_mod, f"{modules_nv} module(s)"), unsafe_allow_html=True)
+    st.markdown(cond_row("PFA >= 12/20", cond_pfa, f"{pfa_2:.1f}/20"), unsafe_allow_html=True)
+
+    nb_cond_ok = sum([cond_moy, cond_mod, cond_pfa])
+    st.markdown(f"**{nb_cond_ok}/3 conditions satisfaites**")
+
+    # ── Zones de danger ──────────────────────────────────────────────────
+    st.markdown('<div class="section-hdr">Zones de danger</div>', unsafe_allow_html=True)
+
+    def danger_row(label, is_danger):
+        css  = "danger-box" if is_danger else "safe-box"
+        icon = "⚠️" if is_danger else "✅"
+        return f'<div class="{css}">{icon} {label}</div>'
+
+    st.markdown(danger_row(f"Absences S1: {abs_s1}h (seuil: 10h)", abs_s1 > 10), unsafe_allow_html=True)
+    st.markdown(danger_row(f"Absences S2: {abs_s2}h (seuil: 10h)", abs_s2 > 10), unsafe_allow_html=True)
+    st.markdown(danger_row(f"Redoublant: {'Oui' if redoublant else 'Non'}", redoublant == 1), unsafe_allow_html=True)
+
+    # ── Profil comportemental ─────────────────────────────────────────────
+    st.markdown('<div class="section-hdr">Profil comportemental</div>', unsafe_allow_html=True)
+    pe = PROFIL_EMOJI[profil_comp]
+    pl = PROFIL_LABELS[profil_comp]
+    st.markdown(f'<div class="profil-label">{pe} {pl}</div>', unsafe_allow_html=True)
+    st.markdown(f"Total absences: **{total_abs}h** | Progression S1➜S2: **{progression:+.1f} pts**")
+
+    # Remarques automatiques
+    st.markdown('<div class="section-hdr">Remarques comportementales</div>', unsafe_allow_html=True)
+    remarques = []
+    if abs_s1 <= 2 and abs_s2 <= 2:
+        remarques.append("Presence exemplaire — assiduite parfaite sur les deux semestres.")
+    if abs_s1 > 10:
+        remarques.append(f"Absences excessives au S1 ({abs_s1}h > 10h) — zone de danger.")
+    if abs_s2 > 10:
+        remarques.append(f"Absences excessives au S2 ({abs_s2}h > 10h) — zone de danger.")
+    if progression > 1.5:
+        remarques.append(f"Progression entre S1 et S2 (+{progression:.1f} pts) — bonne dynamique.")
+    elif progression < -1.5:
+        remarques.append(f"Regression entre S1 et S2 ({progression:.1f} pts) — deterioration.")
+    if redoublant:
+        remarques.append("Statut redoublant — suivi personnalise necessaire.")
+    if modules_nv > 3:
+        remarques.append(f"{modules_nv} modules non valides depassent le seuil de 3.")
+    if pfa_2 < 12:
+        remarques.append(f"Note PFA ({pfa_2:.1f}/20) insuffisante — investissement supplementaire requis.")
+    if not remarques:
+        remarques.append("Aucune anomalie detectee. Etudiant dans la norme.")
+
+    for r in remarques:
+        st.markdown(f'<div class="remarque">📝 {r}</div>', unsafe_allow_html=True)
 
     # Recommandations
-    st.markdown('<div class="section-title">Recommandations</div>', unsafe_allow_html=True)
-    for rec in result["recs"]:
-        st.markdown(f'<div class="rec-item">✅ {rec}</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-hdr">Recommandations</div>', unsafe_allow_html=True)
+    if couleur == "ROUGE":
+        recs = [
+            "URGENT: Entretien avec le responsable pedagogique",
+            "Plan de rattrapage pour les modules non valides",
+            "Signalement si absences depassent le seuil",
+            "Tutorat personnalise pour la moyenne",
+        ]
+        if pfa_2 < 12: recs.append("Encadrement renforce du projet PFA")
+    elif couleur == "JAUNE":
+        recs = [
+            "Surveiller les absences (contacter si > 10h)",
+            "Renforcement cible dans les modules faibles",
+            "Suivi mensuel de la progression",
+        ]
+    else:
+        recs = [
+            "Continuer sur cette excellente lancee",
+            "Proposer des projets enrichissants",
+        ]
+    for r in recs:
+        st.markdown(f'<div class="rec-item">✅ {r}</div>', unsafe_allow_html=True)
 
-# ─── Section: Analyse de sensibilite multi-modeles ────────────────────────────
+# ══════════════════════ SECTION BAS: Comparaison multi-modeles ════════════════
 st.markdown("---")
 st.subheader("Comparaison des predictions — Tous les modeles")
+mcols = st.columns(len(models))
+for mcol, (nm, _) in zip(mcols, models.items()):
+    ln, pr, nt, cl = live_predict(fd, nm, scaler, feature_names, models)
+    em = {"VERT":"🟢","JAUNE":"🟡","ROUGE":"🔴"}[cl]
+    with mcol:
+        st.metric(nm, f"{pr*100:.1f}%", cl)
+        st.markdown(f"{em} **{cl}** — Note: {nt:.1f}/20")
 
-cols_models = st.columns(len(models))
-for col, (name, _) in zip(cols_models, models.items()):
-    res_m = predict_live(features_dict, name, scaler, feature_names, models)
-    emoji_c = {"VERT": "🟢", "JAUNE": "🟡", "ROUGE": "🔴"}[res_m["couleur"]]
-    with col:
-        st.metric(
-            label=name,
-            value=f"{res_m['probabilite']*100:.1f}%",
-            delta=res_m["couleur"]
-        )
-        st.markdown(f"**{emoji_c} {res_m['couleur']}** — Note: {res_m['note_predite']:.1f}/20")
-
-# ─── Section: What-if Table (variation absences) ──────────────────────────────
+# ══════════════════════ SECTION BAS: What-if Absences ════════════════════════
 st.markdown("---")
-st.subheader("Simulation What-if: Impact des Absences")
+st.subheader("Simulation What-if: Impact des Absences sur les 3 Conditions")
 
-with st.expander("Voir comment les absences impactent la prediction"):
-    absence_vals = list(range(0, 85, 10))
-    sim_data = []
-    for a in absence_vals:
-        fd = features_dict.copy()
-        fd["Absences_S1"] = float(a // 2)
-        fd["Absences_S2"] = float(a // 2)
-        fd["Total_Absences"] = float(a)
-        r = predict_live(fd, modele_choisi, scaler, feature_names, models)
-        sim_data.append({
-            "Absences totales": a,
-            "Probabilite (%)": round(r["probabilite"] * 100, 1),
-            "Note predite": r["note_predite"],
-            "Statut": r["couleur"],
+with st.expander("Voir la simulation"):
+    absence_range = list(range(0, 90, 5))
+    sim_rows = []
+    for total_a in absence_range:
+        fd2 = fd.copy()
+        a1 = total_a // 2; a2 = total_a - a1
+        fd2.update({
+            "Absences_S1": float(a1), "Absences_S2": float(a2),
+            "Total_Absences": float(total_a),
+            "Danger_Absences": 1 if (a1 > 10 or a2 > 10) else 0,
+            "Score_Danger": (1 if (a1>10 or a2>10) else 0) + redoublant,
+        })
+        _, pr2, nt2, cl2 = live_predict(fd2, modele, scaler, feature_names, models)
+        sim_rows.append({
+            "Absences totales": total_a,
+            "Probabilite (%)": round(pr2*100, 1),
+            "Note estimee": round(nt2, 1),
+            "Statut": cl2,
+            "Danger Abs": "OUI" if (a1>10 or a2>10) else "NON",
         })
 
-    df_sim = pd.DataFrame(sim_data)
+    df_sim = pd.DataFrame(sim_rows)
+    colors_line = ["#2ecc71" if r=="VERT" else "#f39c12" if r=="JAUNE" else "#e74c3c"
+                   for r in df_sim["Statut"]]
 
-    fig2, ax2 = plt.subplots(figsize=(10, 4), facecolor="#1e2130")
-    ax2.set_facecolor("#1e2130")
-    ax2.plot(df_sim["Absences totales"], df_sim["Probabilite (%)"], "o-", color="#4e79a7", linewidth=2.5, markersize=8)
-    ax2.axhline(y=85, color="#2ecc71", linestyle="--", linewidth=1.5, alpha=0.7, label="Seuil VERT (85%)")
-    ax2.axhline(y=50, color="#f39c12", linestyle="--", linewidth=1.5, alpha=0.7, label="Seuil JAUNE (50%)")
-    ax2.set_xlabel("Absences totales (heures)", fontsize=11, color="white")
-    ax2.set_ylabel("Probabilite de reussite (%)", fontsize=11, color="white")
-    ax2.set_title("Impact des Absences sur la Probabilite de Reussite", fontsize=12, fontweight="bold", color="white")
-    ax2.legend(facecolor="#1e2130", labelcolor="white", fontsize=10)
-    ax2.tick_params(colors="white")
-    ax2.spines[:].set_color("#333")
-    ax2.set_ylim(0, 110)
+    fig, ax = plt.subplots(figsize=(10, 4), facecolor="#1e2130")
+    ax.set_facecolor("#1e2130")
+    ax.plot(df_sim["Absences totales"], df_sim["Probabilite (%)"], "o-",
+            color="#4e79a7", linewidth=2.5, markersize=7)
+    ax.axhline(y=70, color="#2ecc71", linestyle="--", linewidth=1.5, alpha=0.7, label="Seuil VERT (70%)")
+    ax.axhline(y=40, color="#e74c3c", linestyle="--", linewidth=1.5, alpha=0.7, label="Seuil ROUGE (<40%)")
+    ax.axvline(x=20, color="#f39c12", linestyle=":", linewidth=1.5, alpha=0.7, label="Danger abs (20h)")
+    ax.set_xlabel("Absences totales (h)", fontsize=11, color="white")
+    ax.set_ylabel("Probabilite de reussite (%)", fontsize=11, color="white")
+    ax.set_title("Impact des Absences — Probabilite de Reussite", fontsize=12, fontweight="bold", color="white")
+    ax.legend(facecolor="#1e2130", labelcolor="white", fontsize=10)
+    ax.tick_params(colors="white"); ax.spines[:].set_color("#333")
+    ax.set_ylim(0, 110)
     plt.tight_layout()
-    st.pyplot(fig2)
-    plt.close(fig2)
-
+    st.pyplot(fig); plt.close(fig)
     st.dataframe(df_sim, use_container_width=True)
 
-# ─── Footer ───────────────────────────────────────────────────────────────────
 st.markdown("---")
-st.markdown(
-    "<center><small>PFA — Systeme Intelligent de Prediction de la Reussite Academique | "
-    "Interface 13 — What-if Analysis | ML Engineer</small></center>",
-    unsafe_allow_html=True
-)
+st.markdown("<center><small>PFA — Prediction Reussite Academique | Interface 13 — What-if | Conditions: Moy≥12, Modules_NV≤3, PFA≥12</small></center>", unsafe_allow_html=True)
