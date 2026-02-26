@@ -63,7 +63,12 @@ FEATURE_COLS = [
     "PFA_2",
     "Modules_Non_Valides",
     "Redoublant",
-    "Filiere_Code",  # encodage numerique de la filiere
+    "Filiere_Code",
+    # Flags de danger (calcules automatiquement)
+    "Danger_Absences",     # 1 si abs S1>10 ou abs S2>10
+    "Danger_Redoublant",   # 1 si redoublant
+    "Score_Danger",        # 0, 1 ou 2 (somme des dangers)
+    "Profil_Comportement", # 0=Tres assidu, 1=Assidu, 2=Preoccupant, 3=Chronique
 ]
 
 TARGET_COL = "Moyenne_Annuelle"
@@ -174,28 +179,48 @@ def create_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def create_target_binary(df: pd.DataFrame, seuil: float = 10.0) -> pd.DataFrame:
+def create_target_binary(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Cible binaire adaptative:
-    - Si tous ont reussi (>= seuil), utilise la mediane comme seuil alternatif.
-    - Sinon: 1 = Reussi, 0 = Echec
+    Conditions REELLES de reussite (multi-criteres):
+    ✅ Reussi = 1 si TOUTES ces conditions sont remplies:
+        - Moyenne_Annuelle >= 12/20
+        - Modules_Non_Valides <= 3
+        - PFA_2 >= 12/20
+    ❌ Echec = 0 si au moins une condition n'est pas remplie
+
+    Zones de danger (ne force pas l'echec mais cree un flag):
+        ⚠️ Absences_S1 > 10h  ou  Absences_S2 > 10h
+        ⚠️ Redoublant = 1
     """
-    if TARGET_COL not in df.columns:
-        return df
+    # --- Conditions de reussite ---
+    cond_moy = pd.to_numeric(df.get("Moyenne_Annuelle", pd.Series(0)), errors="coerce").fillna(0) >= 12.0
+    cond_mod = pd.to_numeric(df.get("Modules_Non_Valides", pd.Series(0)), errors="coerce").fillna(99) <= 3
+    cond_pfa = pd.to_numeric(df.get("PFA_2", pd.Series(0)), errors="coerce").fillna(0) >= 12.0
 
-    notes = pd.to_numeric(df[TARGET_COL], errors="coerce").dropna()
-    tous_reussis = (notes >= seuil).all()
+    df["Reussite"] = (cond_moy & cond_mod & cond_pfa).astype(int)
 
-    if tous_reussis:
-        seuil_adapte = float(notes.median())
-        print(f"Seuil adaptatif: mediane = {seuil_adapte:.2f} (tous ont reussi >= {seuil})")
-    else:
-        seuil_adapte = seuil
+    # --- Flags de danger (features supplementaires pour le modele) ---
+    abs_s1 = pd.to_numeric(df.get("Absences_S1", pd.Series(0)), errors="coerce").fillna(0)
+    abs_s2 = pd.to_numeric(df.get("Absences_S2", pd.Series(0)), errors="coerce").fillna(0)
+    df["Danger_Absences"]   = ((abs_s1 > 10) | (abs_s2 > 10)).astype(int)
+    df["Danger_Redoublant"] = df.get("Redoublant", pd.Series(0)).astype(int)
+    df["Score_Danger"]      = df["Danger_Absences"] + df["Danger_Redoublant"]
 
-    df["Reussite"] = (df[TARGET_COL] >= seuil_adapte).astype(int)
+    # --- Profil comportemental (score 0-3) deduit des absences ---
+    # 0 = Tres assidu, 1 = Assidu, 2 = Preoccupant, 3 = Absenteiste chronique
+    total_abs = abs_s1 + abs_s2
+    df["Profil_Comportement"] = pd.cut(
+        total_abs,
+        bins=[-1, 5, 15, 30, 9999],
+        labels=[0, 1, 2, 3]
+    ).astype(int)
+
     counts = df["Reussite"].value_counts().to_dict()
     print(f"Distribution: Reussi(1)={counts.get(1,0)} | Echec(0)={counts.get(0,0)}")
+    print(f"En zone danger (absences/redoublant): {df['Score_Danger'].gt(0).sum()} etudiants")
     return df
+
+
 
 
 def run_pipeline(filenames=None, test_size=0.2, random_state=42):
@@ -225,7 +250,7 @@ def run_pipeline(filenames=None, test_size=0.2, random_state=42):
     df = clean_data(df)
     df = handle_missing(df)
     df = create_features(df)
-    df = create_target_binary(df)
+    df = create_target_binary(df)  # Utilise les vraies conditions de reussite
 
     print(f"Apres nettoyage: {len(df)} etudiants valides")
 
