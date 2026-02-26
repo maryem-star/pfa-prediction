@@ -1,1 +1,30 @@
- 
+# Backend
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg2-binary
+alembic
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+python-dotenv
+pydantic[email]
+
+# ML & Data Science
+pandas
+numpy
+scikit-learn
+matplotlib
+seaborn
+joblib
+openpyxl
+xlrd
+imbalanced-learn
+
+# Notebook
+jupyter
+ipykernel
+
+# Tests
+pytest
+httpx
