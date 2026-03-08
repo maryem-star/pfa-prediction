@@ -21,7 +21,7 @@ def get_stats(db: Session = Depends(get_db), current_user=Depends(get_current_us
     interventions_ouvertes = db.query(Intervention).filter(Intervention.statut == "ouvert").count()
     notifications_non_lues = db.query(Notification).filter(
         Notification.user_id == current_user.id,
-        Notification.lu == False
+        Notification.lu.is_(False)
     ).count()
 
     return {

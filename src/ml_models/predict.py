@@ -1,20 +1,16 @@
 """
-Module de Prediction ML — Conditions reelles de reussite
+Module de Prédiction ML — Système intelligent 3ème année
 =========================================================
-Conditions de reussite:
-    ✅ Moyenne_Annuelle >= 12/20
-    ✅ Modules_Non_Valides <= 3
-    ✅ PFA_2 >= 12/20
+Deux modes de prédiction:
 
-Zones de danger:
-    ⚠️ Absences_S1 > 10h  ou  Absences_S2 > 10h
-    ⚠️ Redoublant = 1
+1. predict() — prédiction classique réussite 1A/2A
+   Conditions: Moy >= 12, Modules_NV <= 3, PFA >= 12
 
-Profil comportemental deduit des absences:
-    0 = Tres assidu    (total abs <= 5h)
-    1 = Assidu         (total abs 6-15h)
-    2 = Preoccupant    (total abs 16-30h)
-    3 = Absenteiste    (total abs > 30h)
+2. predict_modules_3A() — prédiction des modules de 3ème année
+   Entrée: données 1A + données 2A (optionnel)
+   Sortie: validation module par module, note S5 et PFE estimées
+
+Absences > 10h → danger | Redoublant → facteur de risque
 """
 
 import os
@@ -26,22 +22,22 @@ MODELS_PATH = os.path.join(BASE_DIR, "models")
 
 # ─── Profils comportementaux ──────────────────────────────────────────────────
 PROFIL_LABELS = {
-    0: "Tres assidu",
+    0: "Très assidu",
     1: "Assidu",
-    2: "Comportement preoccupant",
-    3: "Absenteiste chronique",
+    2: "Comportement préoccupant",
+    3: "Absentéiste chronique",
 }
 
 PROFIL_DESCRIPTIONS = {
-    0: "L'etudiant est tres regulier, pratiquement aucune absence. Attitude exemplaire.",
-    1: "L'etudiant est globalement assidu avec quelques absences ponctuelles.",
-    2: "Le nombre d'absences est preoccupant. Un suivi est recommande.",
-    3: "Absenteisme chronique detecte. Intervention urgente necessaire.",
+    0: "L'étudiant est très régulier, pratiquement aucune absence. Attitude exemplaire.",
+    1: "L'étudiant est globalement assidu avec quelques absences ponctuelles.",
+    2: "Le nombre d'absences est préoccupant. Un suivi est recommandé.",
+    3: "Absentéisme chronique détecté. Intervention urgente nécessaire.",
 }
 
 
 def _load(model_name: str):
-    """Charge le modele, le scaler et les feature names."""
+    """Charge le modèle, le scaler et les feature names."""
     scaler        = joblib.load(os.path.join(MODELS_PATH, "scaler.pkl"))
     feature_names = joblib.load(os.path.join(MODELS_PATH, "feature_names.pkl"))
     clf           = joblib.load(os.path.join(MODELS_PATH, f"{model_name}.pkl"))
@@ -50,10 +46,10 @@ def _load(model_name: str):
 
 def classifier_couleur(probabilite: float, note_predite: float = None) -> str:
     """
-    VERT/JAUNE/ROUGE base sur les vraies conditions:
-    - VERT  : note >= 12 ET proba >= 70%  (reussite probable)
-    - ROUGE : note < 12  OU  proba < 40%  (echec probable)
-    - JAUNE : entre les deux (zone incertaine)
+    VERT/JAUNE/ROUGE basé sur les vraies conditions:
+    - VERT  : note >= 12 ET proba >= 70%
+    - ROUGE : note < 12  OU  proba < 40%
+    - JAUNE : entre les deux
     """
     note = note_predite if note_predite is not None else probabilite * 20
 
@@ -66,48 +62,33 @@ def classifier_couleur(probabilite: float, note_predite: float = None) -> str:
 
 
 def profil_comportement(abs_s1: float, abs_s2: float, redoublant: int = 0) -> dict:
-    """
-    Analyse comportementale complete de l'etudiant.
-    Deduit le profil a partir des absences et du statut redoublant.
-    """
+    """Analyse comportementale complète de l'étudiant."""
     total = abs_s1 + abs_s2
-    progression_abs = abs_s2 - abs_s1  # positif = aggravation
+    progression_abs = abs_s2 - abs_s1
 
-    # Score de profil (0-3)
-    if total <= 5:
-        score = 0
-    elif total <= 15:
-        score = 1
-    elif total <= 30:
-        score = 2
-    else:
-        score = 3
+    if total <= 5:    score = 0
+    elif total <= 15: score = 1
+    elif total <= 30: score = 2
+    else:             score = 3
 
-    # Zones de danger
     danger_abs = abs_s1 > 10 or abs_s2 > 10
     danger_red = redoublant == 1
 
-    # Remarques comportementales
     remarques = []
-
     if abs_s1 <= 2 and abs_s2 <= 2:
-        remarques.append("Presence exemplaire: assiduite parfaite sur les deux semestres.")
+        remarques.append("Présence exemplaire: assiduité parfaite sur les deux semestres.")
     elif abs_s1 <= 5 and abs_s2 <= 5:
-        remarques.append("Bonne assiduite globale sur l'annee.")
-
+        remarques.append("Bonne assiduité globale sur l'année.")
     if abs_s1 > 10:
         remarques.append(f"Absences excessives au S1 ({abs_s1}h > seuil de 10h): zone de danger.")
     if abs_s2 > 10:
         remarques.append(f"Absences excessives au S2 ({abs_s2}h > seuil de 10h): zone de danger.")
-
     if progression_abs > 5:
-        remarques.append(f"Aggravation des absences de S1 a S2 (+{progression_abs}h): deterioration comportementale.")
+        remarques.append(f"Aggravation des absences de S1 à S2 (+{progression_abs}h).")
     elif progression_abs < -5:
-        remarques.append(f"Amelioration notable de l'assiduite de S1 a S2 ({progression_abs}h): bonne dynamique.")
-
+        remarques.append(f"Amélioration notable de l'assiduité de S1 à S2 ({progression_abs}h).")
     if redoublant == 1:
-        remarques.append("Statut redoublant: necessite un suivi renforce et un accompagnement personnalise.")
-
+        remarques.append("Statut redoublant: nécessite un suivi renforcé.")
     if not remarques:
         remarques.append(PROFIL_DESCRIPTIONS[score])
 
@@ -125,9 +106,7 @@ def profil_comportement(abs_s1: float, abs_s2: float, redoublant: int = 0) -> di
 
 
 def top_facteurs_risque(features_dict: dict, couleur: str) -> list:
-    """
-    Identifie les facteurs de risque principaux selon les vraies conditions.
-    """
+    """Identifie les facteurs de risque principaux."""
     facteurs = []
 
     moy_s1     = features_dict.get("Moyenne_S1", 12)
@@ -139,84 +118,71 @@ def top_facteurs_risque(features_dict: dict, couleur: str) -> list:
     redoublant = features_dict.get("Redoublant", 0)
     progression = moy_s2 - moy_s1
 
-    # Conditions de reussite non satisfaites
     if features_dict.get("Moyenne_Annuelle", (moy_s1 + moy_s2) / 2) < 12:
-        facteurs.append(f"Moyenne annuelle insuffisante (seuil requis: 12/20)")
+        facteurs.append("Moyenne annuelle insuffisante (seuil requis: 12/20)")
     if modules_nv > 3:
-        facteurs.append(f"{int(modules_nv)} modules non valides (seuil max: 3)")
+        facteurs.append(f"{int(modules_nv)} modules non validés (seuil max: 3)")
     if pfa < 12:
         facteurs.append(f"Note PFA insuffisante ({pfa:.1f}/20, seuil requis: 12/20)")
-
-    # Zones de danger
     if abs_s1 > 10:
         facteurs.append(f"Absences S1 excessives ({abs_s1}h > 10h: zone de danger)")
     if abs_s2 > 10:
         facteurs.append(f"Absences S2 excessives ({abs_s2}h > 10h: zone de danger)")
     if redoublant == 1:
         facteurs.append("Statut redoublant (facteur de risque majeur)")
-
-    # Autres alertes
     if moy_s1 < 10:
         facteurs.append(f"Moyenne S1 critique ({moy_s1:.1f}/20 < 10)")
     if progression < -2:
-        facteurs.append(f"Regression entre S1 et S2 ({progression:+.1f} points)")
+        facteurs.append(f"Régression entre S1 et S2 ({progression:+.1f} points)")
 
-    return facteurs[:5] if facteurs else ["Aucun facteur de risque majeur identifie"]
+    return facteurs[:5] if facteurs else ["Aucun facteur de risque majeur identifié"]
 
 
 def recommandations(couleur: str, facteurs: list) -> list:
-    """
-    Recommandations adaptees aux conditions reelles.
-    """
+    """Recommandations adaptées aux conditions réelles."""
     if couleur == "ROUGE":
         recs = [
-            "URGENT: Convoquer l'etudiant pour un entretien avec le responsable pedagogique",
-            "Mettre en place un plan de rattrapage pour les modules non valides",
-            "Signaler a l'administration si les absences depassent le seuil reglementaire",
-            "Proposer un tutorat personnalise pour ameliorer la moyenne",
+            "URGENT: Convoquer l'étudiant pour un entretien avec le responsable pédagogique",
+            "Mettre en place un plan de rattrapage pour les modules non validés",
+            "Signaler à l'administration si les absences dépassent le seuil réglementaire",
+            "Proposer un tutorat personnalisé pour améliorer la moyenne",
         ]
         if any("PFA" in f for f in facteurs):
-            recs.append("Encadrement renforce sur le projet PFA (note critique)")
+            recs.append("Encadrement renforcé sur le projet PFA (note critique)")
         if any("redoublant" in f.lower() for f in facteurs):
-            recs.append("Envisager une orientation vers une filiere mieux adaptee")
+            recs.append("Envisager une orientation vers une filière mieux adaptée")
     elif couleur == "JAUNE":
         recs = [
-            "Surveiller l'evolution des absences et contacter l'etudiant si > 10h",
-            "Renforcement cible dans les modules a risque",
+            "Surveiller l'évolution des absences et contacter l'étudiant si > 10h",
+            "Renforcement ciblé dans les modules à risque",
             "Encourager la participation active aux TD et TP",
-            "Suivi mensuel de la progression academique",
+            "Suivi mensuel de la progression académique",
         ]
         if any("PFA" in f for f in facteurs):
-            recs.append("Ameliorer l'investissement dans le projet PFA")
-    else:  # VERT
+            recs.append("Améliorer l'investissement dans le projet PFA")
+    else:
         recs = [
-            "Continuer sur cette excellente trajectoire academique",
-            "Encourager l'etudiant a mentorer ses camarades en difficulte",
-            "Proposer des projets enrichissants ou des defis avances",
+            "Continuer sur cette excellente trajectoire académique",
+            "Encourager l'étudiant à mentorer ses camarades en difficulté",
+            "Proposer des projets enrichissants ou des défis avancés",
         ]
     return recs
 
 
 def predict(features_dict: dict, modele: str = "LogisticRegression") -> dict:
     """
-    Prediction complete avec vraies conditions de reussite.
-
-    Args:
-        features_dict: dictionnaire des features de l'etudiant
-        modele: nom du modele ML a utiliser
+    Prédiction classique réussite 1A/2A avec profil comportemental.
 
     Returns:
-        dict avec label, probabilite, note_predite, couleur, profil comportemental,
-             facteurs de risque, recommandations, verification des 3 conditions
+        dict avec label, probabilite, note_predite, statut_couleur,
+        conditions, profil_comportement, facteurs_risque, recommandations
     """
     clf, scaler, feature_names = _load(modele)
 
-    # Calculer les features derivees si absentes
     abs_s1 = features_dict.get("Absences_S1", 0)
     abs_s2 = features_dict.get("Absences_S2", 0)
     redoublant = int(features_dict.get("Redoublant", 0))
 
-    # Ajouter les flags de danger si absents
     if "Danger_Absences" not in features_dict:
         features_dict["Danger_Absences"]   = 1 if (abs_s1 > 10 or abs_s2 > 10) else 0
     if "Danger_Redoublant" not in features_dict:
@@ -230,80 +196,188 @@ def predict(features_dict: dict, modele: str = "LogisticRegression") -> dict:
         elif total_abs <= 30: features_dict["Profil_Comportement"] = 2
         else:                 features_dict["Profil_Comportement"] = 3
 
-    X = np.array([[features_dict.get(f, 0.0) for f in feature_names]])
+    X    = np.array([[features_dict.get(f, 0.0) for f in feature_names]])
     X_sc = scaler.transform(X)
 
     label_num = clf.predict(X_sc)[0]
     proba     = float(clf.predict_proba(X_sc)[0][1])
 
-    # Estimation de la note (ponderation intelligente)
     moy_s1 = features_dict.get("Moyenne_S1", 10)
     moy_s2 = features_dict.get("Moyenne_S2", moy_s1)
     pfa    = features_dict.get("PFA_2", 12)
-    # Note estimee: 70% basee sur la proba, 30% ancree sur les vraies moyennes
     note_predite = proba * 20 * 0.7 + ((moy_s1 + moy_s2) / 2) * 0.3
 
-    # Verification explicite des 3 conditions
     moy_annuelle = features_dict.get("Moyenne_Annuelle",
                                      features_dict.get("Moyenne_S2", note_predite))
     modules_nv   = features_dict.get("Modules_Non_Valides", 0)
 
     conditions = {
-        "moy_ok":  float(moy_annuelle) >= 12.0,
-        "mod_ok":  float(modules_nv)   <= 3,
-        "pfa_ok":  float(pfa)          >= 12.0,
-        "abs_s1_danger": abs_s1 > 10,
-        "abs_s2_danger": abs_s2 > 10,
+        "moy_ok":           float(moy_annuelle) >= 12.0,
+        "mod_ok":           float(modules_nv)   <= 3,
+        "pfa_ok":           float(pfa)          >= 12.0,
+        "abs_s1_danger":    abs_s1 > 10,
+        "abs_s2_danger":    abs_s2 > 10,
         "redoublant_danger": redoublant == 1,
     }
 
-    couleur  = classifier_couleur(proba, note_predite)
+    couleur      = classifier_couleur(proba, note_predite)
     comportement = profil_comportement(abs_s1, abs_s2, redoublant)
-    facteurs = top_facteurs_risque({**features_dict, "Moyenne_Annuelle": moy_annuelle}, couleur)
-    recs     = recommandations(couleur, facteurs)
+    facteurs     = top_facteurs_risque({**features_dict, "Moyenne_Annuelle": moy_annuelle}, couleur)
+    recs         = recommandations(couleur, facteurs)
 
     return {
-        "label":              "Reussi" if label_num == 1 else "Echec",
-        "probabilite":        round(proba, 4),
-        "note_predite":       round(note_predite, 2),
-        "statut_couleur":     couleur,
-        "conditions":         conditions,
+        "label":               "Réussi" if label_num == 1 else "Échec",
+        "probabilite":         round(proba, 4),
+        "note_predite":        round(note_predite, 2),
+        "statut_couleur":      couleur,
+        "conditions":          conditions,
         "profil_comportement": comportement,
-        "facteurs_risque":    facteurs,
-        "recommandations":    recs,
-        "modele_utilise":     modele,
+        "facteurs_risque":     facteurs,
+        "recommandations":     recs,
+        "modele_utilise":      modele,
+    }
+
+
+def predict_modules_3A(etudiant_1A: dict, filiere: str,
+                        etudiant_2A: dict = None,
+                        modele: str = "RandomForest") -> dict:
+    """
+    Prédiction intelligente des modules de 3ème année.
+
+    Args:
+        etudiant_1A: dict avec les notes 1A (modules, absences, PFA, redoublant)
+        filiere: clé ou code de filière (ex: "ite", "isic", 6, ...)
+        etudiant_2A: dict avec les notes 2A (optionnel — proxy si absent)
+        modele: modèle ML à utiliser pour l'évaluation globale
+
+    Returns:
+        dict complet:
+            - modules_3A      : {module: {valide, score_prereq, probabilite, raison, label_fr}}
+            - nb_valides      : int
+            - nb_non_valides  : int
+            - note_s5_predite : float
+            - note_pfe_predite: float
+            - statut_global   : "VERT" / "JAUNE" / "ROUGE"
+            - taux_validation : float (%)
+            - resume          : str
+            - profil_1A       : dict (profil comportemental 1A)
+            - profil_2A       : dict (profil comportemental 2A, si disponible)
+            - facteurs_risque_3A: list
+            - recommandations_3A: list
+    """
+    import sys
+    sys.path.insert(0, BASE_DIR)
+    from src.preprocessing.module_relations import predict_all_modules_3A, FILIERE_CODE_TO_KEY
+
+    # Résoudre la filière
+    if isinstance(filiere, int):
+        filiere = FILIERE_CODE_TO_KEY.get(filiere, "ite")
+
+    # Calcul prédiction 3A (module par module)
+    res_3A = predict_all_modules_3A(etudiant_1A, filiere, etudiant_2A)
+
+    # Profils comportementaux
+    abs_1A_s1 = float(etudiant_1A.get("Absences_S1", 0))
+    abs_1A_s2 = float(etudiant_1A.get("Absences_S2", 0))
+    red_1A    = int(etudiant_1A.get("Redoublant", 0))
+    profil_1A = profil_comportement(abs_1A_s1, abs_1A_s2, red_1A)
+
+    profil_2A = None
+    if etudiant_2A:
+        abs_2A_s1 = float(etudiant_2A.get("Absences_S1", 0))
+        abs_2A_s2 = float(etudiant_2A.get("Absences_S2", 0))
+        red_2A    = int(etudiant_2A.get("Redoublant", 0))
+        profil_2A = profil_comportement(abs_2A_s1, abs_2A_s2, red_2A)
+
+    # Facteurs de risque spécifiques à la 3A
+    facteurs_3A = []
+    if res_3A["taux_validation"] < 60:
+        facteurs_3A.append(f"Moins de 60% des modules 3A prédits validés ({res_3A['taux_validation']:.0f}%)")
+    if profil_1A["danger_abs"]:
+        facteurs_3A.append(f"Absences 1A excessives ({profil_1A['total_abs']:.0f}h > seuil 10h)")
+    if red_1A:
+        facteurs_3A.append("Redoublant en 1ère année — facteur de risque important")
+    if profil_2A and profil_2A["danger_abs"]:
+        facteurs_3A.append(f"Absences 2A excessives ({profil_2A['total_abs']:.0f}h > seuil 10h)")
+
+    # Modules non validés (liste)
+    modules_non_valides = [
+        res["label_fr"]
+        for mod_key, res in res_3A["modules_3A"].items()
+        if not res["valide"]
+    ]
+    if modules_non_valides:
+        facteurs_3A.append(f"Modules à risque: {', '.join(modules_non_valides)}")
+
+    if not facteurs_3A:
+        facteurs_3A = ["Aucun facteur de risque majeur — profil favorable pour la 3A"]
+
+    # Recommandations 3A
+    recs_3A = []
+    statut = res_3A["statut_global"]
+    if statut == "ROUGE":
+        recs_3A = [
+            "Renforcement urgent des prérequis dans les modules faillis",
+            "Travail personnel intensif sur les modules de base (S1 et S2)",
+            "Considérer un tutorat spécialisé avant la 3A",
+            "Réduire les absences immédiatement — impact direct sur la 3A",
+        ]
+    elif statut == "JAUNE":
+        recs_3A = [
+            "Révision ciblée des modules prérequis insuffisants",
+            "Maintenir un taux d'assiduité > 90% en 3A",
+            "Préparer les projets 3A en avance (PFE)",
+        ]
+    else:
+        recs_3A = [
+            "Excellent profil — vous êtes prêt pour la 3ème année",
+            "Choisissez des spécialisations ambitieuses en 3A",
+            "Préparez un sujet de PFE innovant dès maintenant",
+        ]
+
+    return {
+        **res_3A,
+        "profil_1A":          profil_1A,
+        "profil_2A":          profil_2A,
+        "facteurs_risque_3A": facteurs_3A,
+        "recommandations_3A": recs_3A,
+        "modules_non_valides_liste": modules_non_valides,
     }
 
 
 def predict_batch(students: list, modele: str = "LogisticRegression") -> list:
-    """Prediction pour plusieurs etudiants."""
+    """Prédiction classique pour plusieurs étudiants."""
     return [predict(s, modele) for s in students]
 
 
+def predict_batch_3A(students: list, filieres: list) -> list:
+    """Prédiction 3A pour plusieurs étudiants."""
+    results = []
+    for i, s in enumerate(students):
+        filiere = filieres[i] if i < len(filieres) else "ite"
+        results.append(predict_modules_3A(s, filiere))
+    return results
+
+
 if __name__ == "__main__":
-    # Test: un etudiant en difficulte
+    # Test prédiction 3A — étudiant ITE fort
     etudiant_test = {
-        "Absences_S1": 15, "Absences_S2": 12,
-        "Module_S1_1": 8.0, "Module_S1_2": 7.5, "Module_S1_3": 9.0,
-        "Module_S1_4": 8.0, "Module_S1_5": 7.0,
-        "Anglais_Tech_1": 11.0, "Francais_Pro_1": 12.0,
-        "Moyenne_S1": 8.9,
-        "Module_S2_1": 9.0, "Module_S2_2": 8.5, "Module_S2_3": 9.5,
-        "Module_S2_4": 8.0, "Module_S2_5": 9.0,
-        "Anglais_Tech_2": 12.0, "Francais_Pro_2": 12.0,
-        "PFA_2": 10.0, "Moyenne_S2": 9.6,
-        "Modules_Non_Valides": 4, "Redoublant": 1,
-        "Filiere_Code": 1, "Moyenne_Annuelle": 9.25,
-        "Progression": 0.7, "Total_Absences": 27, "Moy_Module1": 8.5,
+        "Module_S1_1": 16.0, "Module_S1_2": 15.0, "Module_S1_3": 14.0,
+        "Module_S1_4": 15.0, "Module_S1_5": 17.0,
+        "Module_S2_1": 15.0, "Module_S2_2": 16.0, "Module_S2_3": 17.0,
+        "Module_S2_4": 16.0, "Module_S2_5": 15.0,
+        "PFA_2": 16.0, "Absences_S1": 3, "Absences_S2": 2, "Redoublant": 0,
+        "Moyenne_S1": 15.4, "Moyenne_S2": 15.8, "Modules_Non_Valides": 0,
     }
-    res = predict(etudiant_test)
-    print("=== TEST PREDICTION ===")
-    print(f"Label:       {res['label']}")
-    print(f"Probabilite: {res['probabilite']*100:.1f}%")
-    print(f"Note predite:{res['note_predite']:.1f}/20")
-    print(f"Couleur:     {res['statut_couleur']}")
-    print(f"Conditions:  {res['conditions']}")
-    print(f"Profil:      {res['profil_comportement']['label']}")
-    print(f"Remarques:   {res['profil_comportement']['remarques']}")
-    print(f"Facteurs:    {res['facteurs_risque']}")
-    print(f"Recs:        {res['recommandations']}")
+
+    res = predict_modules_3A(etudiant_test, "ite")
+    print("=== PRÉDICTION 3A — Étudiant ITE ===")
+    print(f"Statut: {res['statut_global']}")
+    print(f"Modules validés: {res['nb_valides']}/{res['nb_total']}")
+    print(f"Note S5 estimée: {res['note_s5_predite']}/20")
+    print(f"Note PFE estimée: {res['note_pfe_predite']}/20")
+    print(f"Résumé: {res['resume']}")
+    print("\nDétail par module:")
+    for k, v in res["modules_3A"].items():
+        icon = "✅" if v["valide"] else "❌"
+        print(f"  {icon} {v['label_fr']}: {v['score_prereq']:.1f}/20")

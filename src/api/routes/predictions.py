@@ -43,6 +43,32 @@ class PredictionMLRequest(BaseModel):
     Modules_Non_Valides:   Optional[int]   = 0
     Redoublant:            Optional[int]   = 0
 
+class Prediction3ARequest(BaseModel):
+    student_id: int
+    filiere: str  # ex: "ite", "isic", "mecanique", etc.
+    modele_utilise: Optional[str] = "RandomForest"
+    # Les notes S1/S2 (comme PredictionMLRequest)
+    Absences_S1:           Optional[float] = 0
+    Mathematiques_1:       Optional[float] = None
+    Algorithmique_Prog:    Optional[float] = None
+    Architecture_Ord:      Optional[float] = None
+    Electronique_Num:      Optional[float] = None
+    Reseaux_Info_1:        Optional[float] = None
+    Anglais_Tech_1:        Optional[float] = None
+    Francais_Pro_1:        Optional[float] = None
+    Moyenne_S1:            Optional[float] = None
+    Absences_S2:           Optional[float] = 0
+    Mathematiques_2:       Optional[float] = None
+    Structures_Donnees:    Optional[float] = None
+    Systemes_Exploitation: Optional[float] = None
+    Bases_Donnees:         Optional[float] = None
+    Reseaux_Info_2:        Optional[float] = None
+    Anglais_Tech_2:        Optional[float] = None
+    Francais_Pro_2:        Optional[float] = None
+    PFA_2:                 Optional[float] = None
+    Modules_Non_Valides:   Optional[int]   = 0
+    Redoublant:            Optional[int]   = 0
+
 # ─── Endpoint: Prédiction ML réelle ──────────────────────────────────────────
 @router.post("/ml/predict")
 def predict_ml(
@@ -88,6 +114,33 @@ def predict_ml(
         **result,
         "prediction_id": prediction.id,
     }
+
+# ─── Endpoint: Prédiction ML 3ème Année (Modules & PFE) ──────────────────────
+@router.post("/ml/predict-3a")
+def predict_ml_3a(
+    data: Prediction3ARequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    """Lance une prédiction experte pour la 3ème année (validation S5 et PFE)."""
+    student = db.query(Student).filter(Student.id == data.student_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Étudiant non trouvé")
+
+    # Appel du module ML expert 3A
+    from src.ml_models.predict import predict_modules_3A
+    
+    # Extraire les features
+    features_1A = data.model_dump(exclude={"student_id", "filiere", "modele_utilise"})
+    
+    # Exécuter la prédiction globale
+    resultats_3A = predict_modules_3A(
+        etudiant_1A=features_1A,
+        filiere=data.filiere,
+        modele=data.modele_utilise
+    )
+
+    return resultats_3A
 
 # ─── Endpoint: Prédiction par lot ────────────────────────────────────────────
 class BatchRequest(BaseModel):
@@ -139,7 +192,7 @@ def create_prediction(data: PredictionCreate, db: Session = Depends(get_db), cur
     if not student:
         raise HTTPException(status_code=404, detail="Étudiant non trouvé")
     from src.ml_models.predict import classifier_couleur
-    couleur = classifier_couleur(data.probabilite_reussite) if data.probabilite_reussite else "JAUNE"
+    couleur = classifier_couleur(data.probabilite_reussite, None) if data.probabilite_reussite else "JAUNE"
     prediction = Prediction(
         student_id=data.student_id,
         modele_utilise=data.modele_utilise,

@@ -11,9 +11,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import confusion_matrix, roc_curve, auc, accuracy_score, precision_score, recall_score, f1_score
 import joblib
@@ -115,18 +115,16 @@ with st.spinner("Chargement des modeles et donnees..."):
     except Exception as e:
         st.error(f"Erreur de chargement: {e}")
         st.info("Assurez-vous d'avoir lance train.py d'abord.")
-        models_loaded = False
         st.stop()
 
-if not models_loaded:
-    st.stop()
 
 # ─── Tabs ─────────────────────────────────────────────────────────────────────
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📊 Tableau des Metriques",
     "🔲 Matrices de Confusion",
     "📈 Courbes ROC",
-    "🏆 Recommandation"
+    "🏆 Recommandation",
+    "🎓 Prédiction 3A par Filière",
 ])
 
 # ════════════════════════════════════════════════════════════
@@ -142,7 +140,7 @@ with tab1:
     for i, (name, res) in enumerate(results.items()):
         is_best = name == best_f1["name"]
         card_class = "metric-card best-card" if is_best else "metric-card"
-        color = MODEL_COLORS[name]
+        color = MODEL_COLORS.get(name, "#888888")
         badge = "⭐ Meilleur" if is_best else ""
         with cols[i]:
             st.markdown(f"""
@@ -185,7 +183,7 @@ with tab1:
     ax.set_facecolor("#1e2130")
     for i, (name, res) in enumerate(results.items()):
         vals  = [res[k] for k in metrics_keys]
-        color = MODEL_COLORS[name]
+        color = MODEL_COLORS.get(name, "#888888")
         bars  = ax.bar(x + i * width, vals, width, label=name, color=color, alpha=0.9)
         for b in bars:
             ax.text(b.get_x() + b.get_width() / 2, b.get_height() + 0.01,
@@ -245,7 +243,7 @@ with tab3:
     ax.set_facecolor("#1e2130")
     ax.plot([0, 1], [0, 1], "w--", linewidth=1.5, label="Aleatoire (AUC=0.50)", alpha=0.5)
     for name, res in results.items():
-        color = MODEL_COLORS[name]
+        color = MODEL_COLORS.get(name, "#888888")
         ax.plot(res["fpr"], res["tpr"], color=color, linewidth=2.5,
                 label=f"{name} (AUC={res['roc_auc']:.3f})")
     ax.set_xlabel("Taux de Faux Positifs (FPR)", fontsize=12, color="white")
@@ -261,7 +259,7 @@ with tab3:
 
     col1, col2, col3 = st.columns(3)
     for col, (name, res) in zip([col1, col2, col3], results.items()):
-        color = MODEL_COLORS[name]
+        color = MODEL_COLORS.get(name, "#888888")
         with col:
             st.metric(label=f"{name} — AUC", value=f"{res['roc_auc']:.4f}",
                       delta=f"+{res['roc_auc']-0.5:.4f} vs aléatoire")
@@ -272,7 +270,6 @@ with tab3:
 # ════════════════════════════════════════════════════════════
 with tab4:
     best = max(results.values(), key=lambda r: r["f1"])
-    second = sorted(results.values(), key=lambda r: r["f1"], reverse=True)[1]
 
     st.subheader("Recommandation du Modele")
     st.success(f"**Modele recommande : {best['name']}**")
@@ -322,10 +319,85 @@ with tab4:
         | **ROC-AUC** | Aire sous la courbe ROC | Robustesse du classifieur |
         """)
 
+# ════════════════════════════════════════════════════════════
+# TAB 5: Prédiction 3A par filière
+# ════════════════════════════════════════════════════════════
+with tab5:
+    st.subheader("🎓 Prédiction des Modules 3ème Année — Par Filière")
+    st.info(
+        "Ce tableau montre la prédiction de validation des modules 3A "
+        "pour un étudiant type (notes moyennes de chaque filière)."
+    )
+
+    try:
+        from src.preprocessing.module_relations import predict_all_modules_3A, FILIERE_CODE_TO_KEY
+
+        # Profil étudiant moyen (par défaut)
+        etudiant_moyen = {
+            "Module_S1_1": 13.0, "Module_S1_2": 12.5, "Module_S1_3": 12.5,
+            "Module_S1_4": 13.0, "Module_S1_5": 12.5,
+            "Module_S2_1": 13.0, "Module_S2_2": 13.0, "Module_S2_3": 13.5,
+            "Module_S2_4": 12.5, "Module_S2_5": 13.0,
+            "PFA_2": 14.0, "Absences_S1": 8, "Absences_S2": 8, "Redoublant": 0,
+        }
+
+        all_filieres = {
+            "ITE — Génie Info": "ite",
+            "ISIC": "isic",
+            "CCN — Cybersec": "ccn",
+            "GEE — Elec": "gee",
+            "Génie Civil": "civil",
+            "Génie Industriel": "industriel",
+        }
+
+        rows_3A = []
+        for fil_name, fil_key in all_filieres.items():
+            res3 = predict_all_modules_3A(etudiant_moyen, fil_key)
+            row = {"Filière": fil_name,
+                   "Modules validés": f"{res3['nb_valides']}/{res3['nb_total']}",
+                   "Taux (%)": res3["taux_validation"],
+                   "Note S5 estimée": res3["note_s5_predite"],
+                   "Note PFE estimée": res3["note_pfe_predite"],
+                   "Statut": res3["statut_global"]}
+            # Ajouter chaque module
+            for mod_key, mod_res in res3["modules_3A"].items():
+                row[mod_res["label_fr"]] = "✅" if mod_res["valide"] else "❌"
+            rows_3A.append(row)
+
+        df_3A = pd.DataFrame(rows_3A).set_index("Filière")
+        st.dataframe(df_3A, use_container_width=True)
+
+        # Graphique comparatif
+        fig5, ax5 = plt.subplots(figsize=(10, 4), facecolor="#1e2130")
+        ax5.set_facecolor("#1e2130")
+        taux_vals  = [r["Taux (%)"] for r in rows_3A]
+        fil_labels = [r["Filière"] for r in rows_3A]
+        colors5 = ["#2ecc71" if t >= 80 else "#f39c12" if t >= 60 else "#e74c3c" for t in taux_vals]
+        bars5 = ax5.bar(fil_labels, taux_vals, color=colors5, alpha=0.85)
+        ax5.axhline(y=80, color="#2ecc71", linestyle="--", alpha=0.7, linewidth=1.5, label="80% (VERT)")
+        ax5.axhline(y=60, color="#f39c12", linestyle="--", alpha=0.7, linewidth=1.5, label="60% (JAUNE)")
+        for b, t in zip(bars5, taux_vals):
+            ax5.text(b.get_x() + b.get_width() / 2, b.get_height() + 1.5,
+                     f"{t:.0f}%", ha="center", color="white", fontsize=11, fontweight="bold")
+        ax5.set_ylabel("Taux de validation 3A (%)", color="white")
+        ax5.set_title("Taux de validation modules 3A — Étudiant moyen par filière",
+                      color="white", fontweight="bold", fontsize=12)
+        ax5.set_ylim(0, 115)
+        ax5.tick_params(colors="white"); ax5.spines[:].set_color("#333")
+        ax5.legend(facecolor="#1e2130", labelcolor="white", fontsize=9)
+        plt.tight_layout()
+        st.pyplot(fig5)
+        plt.close(fig5)
+
+    except Exception as e:
+        st.warning(f"Prédiction 3A non disponible: {e}")
+        st.info("Vérifiez que src/preprocessing/module_relations.py est présent.")
+
+
 # ─── Footer ───────────────────────────────────────────────────────────────────
 st.markdown("---")
 st.markdown(
-    "<center><small>PFA — Systeme Intelligent de Prediction de la Reussite Academique | "
-    "Interface 6 — ML Engineer</small></center>",
+    "<center><small>PFA — Système Intelligent de Prédiction | "
+    "Interface 6 — Comparaison ML + Prédiction 3A</small></center>",
     unsafe_allow_html=True
 )
