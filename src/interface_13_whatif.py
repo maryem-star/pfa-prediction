@@ -432,7 +432,7 @@ etudiant_1A = {
     "Module_S2_1": mod1_s2_1A, "Module_S2_2": mod2_s2_1A, "Module_S2_3": mod3_s2_1A,
     "Module_S2_4": mod4_s2_1A, "Module_S2_5": mod5_s2_1A,
     "Anglais_Tech_2": ang2_1A, "Francais_Pro_2": fr2_1A,
-    "PFA_2": pfa_1A,
+    "PFA_1": pfa_1A, "PFA_2": pfa_1A, # PFA_1 explicitement ajouté pour la prédiction PFE
     "Absences_S1": float(abs_s1_1A), "Absences_S2": float(abs_s2_1A),
     "Redoublant_1A": redoublant_1A, "Redoublant_2A": redoublant_2A, "Redoublant": 1 if (redoublant_1A or redoublant_2A) else 0,
     "Modules_Non_Valides": float(modules_nv_1A),

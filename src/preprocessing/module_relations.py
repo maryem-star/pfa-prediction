@@ -37,38 +37,38 @@ MODULE_RELATIONS_3A = {
     "ite": {
         "Developpement_Web_Avance": {
             "label_fr": "Développement Web Avancé",
-            "prereqs_1A": [("Module_S2_3", 0.5), ("Module_S2_4", 0.3), ("Module_S1_2", 0.2)],
-            "prereqs_2A": [("Module_S2_3", 0.5), ("Module_S2_4", 0.5)],
+            "prereqs_1A": [("Module_S2_3", 0.7), ("Module_S1_2", 0.3)], # S2_3 = POO
+            "prereqs_2A": [("Module_S2_3", 0.7), ("Module_S2_4", 0.3)], # S2_4 = BDD
             "seuil": 12.0,
         },
         "Reseaux_Avances": {
             "label_fr": "Réseaux Avancés & Sécurité",
-            "prereqs_1A": [("Module_S2_5", 0.6), ("Module_S1_3", 0.2), ("Module_S1_4", 0.2)],
-            "prereqs_2A": [("Module_S2_5", 0.7), ("Module_S2_4", 0.3)],
+            "prereqs_1A": [("Module_S2_5", 1.0)], # S2_5 = Réseaux
+            "prereqs_2A": [("Module_S2_5", 1.0)],
             "seuil": 12.0,
         },
         "Intelligence_Artificielle": {
             "label_fr": "Intelligence Artificielle & ML",
-            "prereqs_1A": [("Module_S1_1", 0.5), ("Module_S2_1", 0.3), ("Module_S1_2", 0.2)],
-            "prereqs_2A": [("Module_S2_1", 0.5), ("Module_S2_2", 0.5)],
+            "prereqs_1A": [("Module_S1_1", 0.6), ("Module_S2_1", 0.4)], # Maths 1 & Maths 2
+            "prereqs_2A": [("Module_S2_1", 0.6), ("Module_S2_2", 0.4)],
             "seuil": 12.0,
         },
         "Genie_Logiciel": {
             "label_fr": "Génie Logiciel & Architecture",
-            "prereqs_1A": [("Module_S2_3", 0.4), ("Module_S1_2", 0.3), ("Module_S1_3", 0.3)],
-            "prereqs_2A": [("Module_S2_3", 0.6), ("Module_S2_2", 0.4)],
+            "prereqs_1A": [("Module_S2_3", 0.6), ("Module_S1_2", 0.4)], # POO & Algo
+            "prereqs_2A": [("Module_S2_3", 0.7), ("Module_S2_2", 0.3)],
             "seuil": 12.0,
         },
         "Securite_Informatique": {
             "label_fr": "Sécurité Informatique",
-            "prereqs_1A": [("Module_S2_5", 0.5), ("Module_S1_3", 0.3), ("Module_S1_4", 0.2)],
-            "prereqs_2A": [("Module_S2_5", 0.6), ("Module_S2_3", 0.4)],
+            "prereqs_1A": [("Module_S2_5", 0.8), ("Module_S1_3", 0.2)], # Réseaux & Archi
+            "prereqs_2A": [("Module_S2_5", 0.8), ("Module_S2_3", 0.2)],
             "seuil": 12.0,
         },
         "PFE": {
             "label_fr": "Projet de Fin d'Études (PFE)",
-            "prereqs_1A": [("PFA_2", 0.4), ("Module_S1_1", 0.2), ("Module_S2_3", 0.2), ("Module_S2_4", 0.2)],
-            "prereqs_2A": [("PFA_2", 0.6), ("Module_S2_3", 0.4)],
+            "prereqs_1A": [("PFA_1", 1.0)], # Spécifique Projet
+            "prereqs_2A": [("PFA_2", 1.0)], # Spécifique Projet
             "seuil": 12.0,
         },
     },
@@ -77,38 +77,38 @@ MODULE_RELATIONS_3A = {
     "isic": {
         "Systemes_Distribues": {
             "label_fr": "Systèmes Distribués & Cloud",
-            "prereqs_1A": [("Module_S2_3", 0.4), ("Module_S2_5", 0.4), ("Module_S1_3", 0.2)],
-            "prereqs_2A": [("Module_S2_3", 0.5), ("Module_S2_5", 0.5)],
+            "prereqs_1A": [("Module_S2_5", 0.6), ("Module_S2_3", 0.4)], # Réseaux & POO
+            "prereqs_2A": [("Module_S2_5", 0.6), ("Module_S2_3", 0.4)],
             "seuil": 12.0,
         },
         "Reseaux_Avances": {
             "label_fr": "Réseaux Avancés & Protocoles",
-            "prereqs_1A": [("Module_S2_5", 0.6), ("Module_S1_4", 0.2), ("Module_S1_3", 0.2)],
-            "prereqs_2A": [("Module_S2_5", 0.7), ("Module_S2_3", 0.3)],
+            "prereqs_1A": [("Module_S2_5", 1.0)],
+            "prereqs_2A": [("Module_S2_5", 1.0)],
             "seuil": 12.0,
         },
         "Intelligence_Artificielle": {
             "label_fr": "Intelligence Artificielle",
-            "prereqs_1A": [("Module_S1_1", 0.5), ("Module_S2_1", 0.3), ("Module_S1_2", 0.2)],
-            "prereqs_2A": [("Module_S2_1", 0.5), ("Module_S2_2", 0.5)],
+            "prereqs_1A": [("Module_S1_1", 0.6), ("Module_S2_1", 0.4)],
+            "prereqs_2A": [("Module_S2_1", 0.7), ("Module_S2_2", 0.3)],
             "seuil": 12.0,
         },
         "Securite_SI": {
             "label_fr": "Sécurité des Systèmes d'Information",
-            "prereqs_1A": [("Module_S2_5", 0.4), ("Module_S1_4", 0.3), ("Module_S1_3", 0.3)],
-            "prereqs_2A": [("Module_S2_5", 0.6), ("Module_S2_3", 0.4)],
+            "prereqs_1A": [("Module_S2_5", 0.8), ("Module_S1_3", 0.2)],
+            "prereqs_2A": [("Module_S2_5", 0.8), ("Module_S2_3", 0.2)],
             "seuil": 12.0,
         },
         "Big_Data": {
             "label_fr": "Big Data & Analyse de Données",
-            "prereqs_1A": [("Module_S2_4", 0.5), ("Module_S2_2", 0.3), ("Module_S1_1", 0.2)],
-            "prereqs_2A": [("Module_S2_4", 0.6), ("Module_S2_1", 0.4)],
+            "prereqs_1A": [("Module_S2_4", 0.7), ("Module_S1_1", 0.3)], # BDD & Maths
+            "prereqs_2A": [("Module_S2_4", 0.7), ("Module_S2_1", 0.3)],
             "seuil": 12.0,
         },
         "PFE": {
             "label_fr": "Projet de Fin d'Études (PFE)",
-            "prereqs_1A": [("PFA_2", 0.5), ("Module_S1_1", 0.2), ("Module_S2_4", 0.3)],
-            "prereqs_2A": [("PFA_2", 0.6), ("Module_S2_3", 0.4)],
+            "prereqs_1A": [("PFA_1", 1.0)],
+            "prereqs_2A": [("PFA_2", 1.0)],
             "seuil": 12.0,
         },
     },
@@ -117,32 +117,32 @@ MODULE_RELATIONS_3A = {
     "ccn": {
         "Securite_Avancee": {
             "label_fr": "Sécurité Avancée & Cryptographie",
-            "prereqs_1A": [("Module_S2_5", 0.5), ("Module_S1_4", 0.3), ("Module_S1_3", 0.2)],
-            "prereqs_2A": [("Module_S2_5", 0.6), ("Module_S2_3", 0.4)],
+            "prereqs_1A": [("Module_S2_5", 0.8), ("Module_S1_1", 0.2)], # Math/Réseaux
+            "prereqs_2A": [("Module_S2_5", 0.8), ("Module_S2_1", 0.2)],
             "seuil": 12.0,
         },
         "Reseaux_Entreprise": {
             "label_fr": "Réseaux d'Entreprise & Cloud",
-            "prereqs_1A": [("Module_S2_5", 0.6), ("Module_S1_3", 0.2), ("Module_S1_4", 0.2)],
-            "prereqs_2A": [("Module_S2_5", 0.7), ("Module_S2_4", 0.3)],
+            "prereqs_1A": [("Module_S2_5", 1.0)], # 100% Réseaux
+            "prereqs_2A": [("Module_S2_5", 1.0)],
             "seuil": 12.0,
         },
         "Forensique_Numerique": {
             "label_fr": "Forensique Numérique & Audit",
-            "prereqs_1A": [("Module_S2_3", 0.4), ("Module_S2_5", 0.3), ("Module_S1_2", 0.3)],
-            "prereqs_2A": [("Module_S2_3", 0.5), ("Module_S2_2", 0.5)],
+            "prereqs_1A": [("Module_S2_5", 0.6), ("Module_S2_3", 0.4)],
+            "prereqs_2A": [("Module_S2_5", 0.6), ("Module_S2_3", 0.4)],
             "seuil": 12.0,
         },
         "Pentesting": {
             "label_fr": "Test de Pénétration & Ethical Hacking",
-            "prereqs_1A": [("Module_S2_5", 0.5), ("Module_S1_4", 0.3), ("Module_S2_3", 0.2)],
-            "prereqs_2A": [("Module_S2_5", 0.6), ("Module_S2_3", 0.4)],
+            "prereqs_1A": [("Module_S2_5", 0.7), ("Module_S2_3", 0.3)],
+            "prereqs_2A": [("Module_S2_5", 0.7), ("Module_S2_3", 0.3)],
             "seuil": 12.0,
         },
         "PFE": {
             "label_fr": "Projet de Fin d'Études (PFE)",
-            "prereqs_1A": [("PFA_2", 0.5), ("Module_S2_5", 0.3), ("Module_S2_3", 0.2)],
-            "prereqs_2A": [("PFA_2", 0.6), ("Module_S2_5", 0.4)],
+            "prereqs_1A": [("PFA_1", 1.0)],
+            "prereqs_2A": [("PFA_2", 1.0)],
             "seuil": 12.0,
         },
     },
@@ -151,32 +151,32 @@ MODULE_RELATIONS_3A = {
     "gee": {
         "Electronique_Puissance": {
             "label_fr": "Électronique de Puissance",
-            "prereqs_1A": [("Module_S1_4", 0.5), ("Module_S1_1", 0.3), ("Module_S2_1", 0.2)],
-            "prereqs_2A": [("Module_S2_3", 0.6), ("Module_S2_1", 0.4)],
+            "prereqs_1A": [("Module_S1_4", 0.8), ("Module_S1_1", 0.2)], # Électronique
+            "prereqs_2A": [("Module_S2_3", 0.8), ("Module_S2_1", 0.2)], # Électronique 2
             "seuil": 12.0,
         },
         "Machines_Electriques": {
             "label_fr": "Machines Électriques & Motorisation",
-            "prereqs_1A": [("Module_S1_4", 0.4), ("Module_S1_1", 0.3), ("Module_S1_2", 0.3)],
-            "prereqs_2A": [("Module_S2_3", 0.5), ("Module_S2_2", 0.5)],
+            "prereqs_1A": [("Module_S1_4", 0.7), ("Module_S1_5", 0.3)], # Électronique & Systèmes
+            "prereqs_2A": [("Module_S2_3", 0.7), ("Module_S2_2", 0.3)],
             "seuil": 12.0,
         },
         "Energies_Renouvelables": {
             "label_fr": "Énergies Renouvelables & Smart Grid",
-            "prereqs_1A": [("Module_S1_2", 0.4), ("Module_S1_1", 0.3), ("Module_S1_4", 0.3)],
-            "prereqs_2A": [("Module_S2_2", 0.5), ("Module_S2_3", 0.5)],
+            "prereqs_1A": [("Module_S1_4", 0.6), ("Module_S1_2", 0.4)], # Électronique & Physique
+            "prereqs_2A": [("Module_S2_3", 0.6), ("Module_S2_2", 0.4)], # Électronique 2 & Physique 2
             "seuil": 12.0,
         },
         "Automatique_Avancee": {
             "label_fr": "Automatique Avancée & Régulation",
-            "prereqs_1A": [("Module_S1_1", 0.4), ("Module_S1_4", 0.3), ("Module_S2_1", 0.3)],
-            "prereqs_2A": [("Module_S2_1", 0.5), ("Module_S2_3", 0.5)],
+            "prereqs_1A": [("Module_S1_5", 0.6), ("Module_S1_1", 0.4)], # Systèmes & Maths
+            "prereqs_2A": [("Module_S2_2", 0.6), ("Module_S2_1", 0.4)], # Structures/Physique 2 & Maths 2
             "seuil": 12.0,
         },
         "PFE": {
             "label_fr": "Projet de Fin d'Études (PFE)",
-            "prereqs_1A": [("PFA_2", 0.5), ("Module_S1_4", 0.3), ("Module_S2_3", 0.2)],
-            "prereqs_2A": [("PFA_2", 0.6), ("Module_S2_3", 0.4)],
+            "prereqs_1A": [("PFA_1", 1.0)],
+            "prereqs_2A": [("PFA_2", 1.0)],
             "seuil": 12.0,
         },
     },
@@ -185,32 +185,32 @@ MODULE_RELATIONS_3A = {
     "civil": {
         "Beton_Arme": {
             "label_fr": "Béton Armé & Structures",
-            "prereqs_1A": [("Module_S1_5", 0.6), ("Module_S1_1", 0.2), ("Module_S1_2", 0.2)],
-            "prereqs_2A": [("Module_S2_5", 0.6), ("Module_S2_2", 0.4)],
+            "prereqs_1A": [("Module_S1_5", 0.7), ("Module_S1_3", 0.3)], # Résistance/Systèmes & Matériaux
+            "prereqs_2A": [("Module_S2_2", 0.7), ("Module_S2_5", 0.3)], # Structures & Matériaux (2A)
             "seuil": 12.0,
         },
         "Geotechnique": {
             "label_fr": "Géotechnique & Mécanique des Sols",
-            "prereqs_1A": [("Module_S1_4", 0.5), ("Module_S1_5", 0.3), ("Module_S1_1", 0.2)],
-            "prereqs_2A": [("Module_S2_4", 0.6), ("Module_S2_5", 0.4)],
+            "prereqs_1A": [("Module_S1_4", 0.6), ("Module_S1_5", 0.4)], # Mécanique & Systèmes
+            "prereqs_2A": [("Module_S2_2", 0.6), ("Module_S2_4", 0.4)], # Structures & Thermo/Fluides
             "seuil": 12.0,
         },
         "Hydraulique": {
             "label_fr": "Hydraulique & Fluides",
-            "prereqs_1A": [("Module_S1_2", 0.5), ("Module_S1_1", 0.3), ("Module_S1_4", 0.2)],
-            "prereqs_2A": [("Module_S2_2", 0.6), ("Module_S2_4", 0.4)],
+            "prereqs_1A": [("Module_S1_2", 0.7), ("Module_S1_4", 0.3)], # Physique & Mécanique
+            "prereqs_2A": [("Module_S2_4", 0.8), ("Module_S2_2", 0.2)], # Thermo/Fluides & Structures
             "seuil": 12.0,
         },
         "Routes_Ponts": {
             "label_fr": "Routes, Ponts & Ouvrages d'Art",
-            "prereqs_1A": [("Module_S1_5", 0.5), ("Module_S1_4", 0.3), ("Module_S1_1", 0.2)],
-            "prereqs_2A": [("Module_S2_5", 0.5), ("Module_S2_2", 0.5)],
+            "prereqs_1A": [("Module_S1_3", 0.5), ("Module_S1_5", 0.5)], # Matériaux & Résistance
+            "prereqs_2A": [("Module_S2_5", 0.6), ("Module_S2_2", 0.4)], # Matériaux & Structures
             "seuil": 12.0,
         },
         "PFE": {
             "label_fr": "Projet de Fin d'Études (PFE)",
-            "prereqs_1A": [("PFA_2", 0.5), ("Module_S1_5", 0.3), ("Module_S1_4", 0.2)],
-            "prereqs_2A": [("PFA_2", 0.6), ("Module_S2_5", 0.4)],
+            "prereqs_1A": [("PFA_1", 1.0)],
+            "prereqs_2A": [("PFA_2", 1.0)],
             "seuil": 12.0,
         },
     },
@@ -219,32 +219,32 @@ MODULE_RELATIONS_3A = {
     "industriel": {
         "Manufacturing_Avance": {
             "label_fr": "Manufacturing Avancé & Lean",
-            "prereqs_1A": [("Module_S1_4", 0.4), ("Module_S1_3", 0.3), ("Module_S1_1", 0.3)],
-            "prereqs_2A": [("Module_S2_4", 0.5), ("Module_S2_3", 0.5)],
+            "prereqs_1A": [("Module_S1_5", 0.5), ("Module_S1_3", 0.5)], # Systèmes & Matériaux
+            "prereqs_2A": [("Module_S2_5", 0.6), ("Module_S2_2", 0.4)],
             "seuil": 12.0,
         },
         "Robotique_Automatisation": {
             "label_fr": "Robotique & Automatisation Industrielle",
-            "prereqs_1A": [("Module_S1_4", 0.5), ("Module_S1_3", 0.3), ("Module_S1_1", 0.2)],
-            "prereqs_2A": [("Module_S2_3", 0.6), ("Module_S2_1", 0.4)],
+            "prereqs_1A": [("Module_S1_4", 0.6), ("Module_S1_5", 0.4)], # Méca/Électro & Systèmes
+            "prereqs_2A": [("Module_S2_3", 0.6), ("Module_S2_2", 0.4)],
             "seuil": 12.0,
         },
         "Logistique_Supply": {
             "label_fr": "Logistique & Supply Chain",
-            "prereqs_1A": [("Module_S1_1", 0.4), ("Module_S1_3", 0.3), ("Module_S1_5", 0.3)],
-            "prereqs_2A": [("Module_S2_1", 0.5), ("Module_S2_4", 0.5)],
+            "prereqs_1A": [("Module_S1_2", 0.5), ("Module_S1_1", 0.5)], # Algo/Méthodes & Maths
+            "prereqs_2A": [("Module_S2_1", 0.6), ("Module_S2_4", 0.4)], # Maths & Thermo/Divers
             "seuil": 12.0,
         },
         "Qualite_HSE": {
             "label_fr": "Qualité & HSE (Hygiène Sécurité Environnement)",
-            "prereqs_1A": [("Module_S1_5", 0.4), ("Module_S1_4", 0.3), ("Module_S1_2", 0.3)],
-            "prereqs_2A": [("Module_S2_5", 0.5), ("Module_S2_4", 0.5)],
+            "prereqs_1A": [("Module_S1_5", 0.6), ("Module_S1_3", 0.4)], # Systèmes & Archi
+            "prereqs_2A": [("Module_S2_5", 0.6), ("Module_S2_4", 0.4)],
             "seuil": 12.0,
         },
         "PFE": {
             "label_fr": "Projet de Fin d'Études (PFE)",
-            "prereqs_1A": [("PFA_2", 0.5), ("Module_S1_4", 0.3), ("Module_S1_3", 0.2)],
-            "prereqs_2A": [("PFA_2", 0.6), ("Module_S2_3", 0.4)],
+            "prereqs_1A": [("PFA_1", 1.0)],
+            "prereqs_2A": [("PFA_2", 1.0)],
             "seuil": 12.0,
         },
     },
@@ -418,7 +418,7 @@ def predict_all_modules_3A(etudiant_1A: dict, filiere: str,
     abs_2A = (etudiant_2A.get("Absences_S1", 0) + etudiant_2A.get("Absences_S2", 0)) if etudiant_2A else 0
     red_1A = int(etudiant_1A.get("Redoublant", 0))
     red_2A = int(etudiant_2A.get("Redoublant", 0)) if etudiant_2A else 0
-    pfa_1A = float(etudiant_1A.get("PFA_2", 12.0))
+    pfa_1A = float(etudiant_1A.get("PFA_1", etudiant_1A.get("PFA_2", 12.0)))
     pfa_2A = float(etudiant_2A.get("PFA_2", pfa_1A)) if etudiant_2A else pfa_1A
 
     resultats = {}
@@ -452,9 +452,9 @@ def predict_all_modules_3A(etudiant_1A: dict, filiere: str,
     scores_s5 = [r["score_prereq"] for k, r in resultats.items() if k != "PFE"]
     note_s5 = round(np.mean(scores_s5), 2) if scores_s5 else 12.0
 
-    # Note PFE estimée: basée sur score PFE + historique PFA
+    # Note PFE estimée: basée 100% sur le score PFE qui lui-même est basé sur PFA 1 et PFA 2
     pfe_score = resultats.get("PFE", {}).get("score_prereq", 12.0)
-    note_pfe = round(0.6 * pfe_score + 0.4 * ((pfa_1A + pfa_2A) / 2), 2)
+    note_pfe = round(pfe_score, 2)
 
     # Statut global
     taux_validation = nb_valides / nb_total if nb_total > 0 else 0
