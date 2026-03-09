@@ -232,10 +232,12 @@ with c_etud:
     student_options = []
     student_dict = {}
     for _, row in df_fil.iterrows():
-        cne = row.get('CNE', 'INCONNU')
-        nom = row.get('Nom', '')
+        cne    = row.get('CNE', 'INCONNU')
+        nom    = row.get('Nom', '')
         prenom = row.get('Prenom', '')
-        label = f"{cne} — {nom} {prenom}"
+        is_red = int(row.get('Redoublant', 0)) == 1
+        # Marqueur rouge visible dans le menu déroulant pour les redoublants
+        label = f"{'🔴 ' if is_red else ''}{cne} — {nom} {prenom}"
         student_options.append(label)
         student_dict[label] = row
 
@@ -248,7 +250,23 @@ with c_info:
 
 st.markdown('</div>', unsafe_allow_html=True)
 
+# ── Alerte Redoublant ──────────────────────────────────────────────────────────
 widget_key = str(selected_student_data.get('CNE', 'INCONNU'))
+redoublant_reel = int(selected_student_data.get('Redoublant', 0) or 0)
+
+if redoublant_reel:
+    st.markdown("""
+    <div style="background: rgba(244,63,94,0.12); border: 1px solid #f43f5e;
+                border-left: 6px solid #f43f5e; border-radius: 14px;
+                padding: 16px 22px; margin-bottom: 16px; display:flex; align-items:center; gap:14px;">
+        <span style="font-size:2rem;">⚠️</span>
+        <div>
+            <b style="color:#fda4af; font-family:'Poppins'; font-size:1rem;">Étudiant Redoublant</b><br>
+            <span style="color:#94a3b8; font-size:0.88rem;">Cet étudiant a déjà redoublé une année. 
+            L'IA tient compte de ce facteur de risque dans ses prédictions.</span>
+        </div>
+    </div>""", unsafe_allow_html=True)
+
 
 # ─── HELPER ────────────────────────────────────────────────────────────────────
 def get_val(col_name, default=12.0):
@@ -297,10 +315,9 @@ mod_labels = {
 }
 cur_labels = mod_labels.get(filiere_key, mod_labels["ite"])
 
-# Lire Redoublant depuis les données réelles (lecture seule)
-redoublant_reel = int(get_val('Redoublant', 0))
-redoublant_txt  = "🔴 Oui — Redoublant" if redoublant_reel else "🟢 Non — Première inscription"
-redoublant_col  = "#f43f5e" if redoublant_reel else "#10b981"
+# Texte et couleur dérivés de redoublant_reel (défini plus haut)
+redoublant_txt = "🔴 Oui — Redoublant" if redoublant_reel else "🟢 Non — Première inscription"
+redoublant_col = "#f43f5e" if redoublant_reel else "#10b981"
 
 # ════════════════════════ ONGLETS ════════════════════════════════════════════
 tab1, tab2, tab3 = st.tabs([
