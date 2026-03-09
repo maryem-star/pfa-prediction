@@ -616,6 +616,8 @@ with tab3:
 
             st.markdown('<div class="section-hdr">Bilan Personnel & Plan d\'Action</div>', unsafe_allow_html=True)
 
+            p1A = res["profil_1A"]
+
             if statut == "VERT":
                 # Message de motivation pour les bons étudiants
                 st.markdown(f"""
