@@ -297,6 +297,11 @@ mod_labels = {
 }
 cur_labels = mod_labels.get(filiere_key, mod_labels["ite"])
 
+# Lire Redoublant depuis les données réelles (lecture seule)
+redoublant_reel = int(get_val('Redoublant', 0))
+redoublant_txt  = "🔴 Oui — Redoublant" if redoublant_reel else "🟢 Non — Première inscription"
+redoublant_col  = "#f43f5e" if redoublant_reel else "#10b981"
+
 # ════════════════════════ ONGLETS ════════════════════════════════════════════
 tab1, tab2, tab3 = st.tabs([
     "📋 Données 1ère Année",
@@ -332,8 +337,16 @@ with tab1:
     st.markdown('<div class="section-hdr">Évaluation Annuelle</div>', unsafe_allow_html=True)
     p1, p2, p3 = st.columns(3)
     with p1: pfa_1A = st.slider("🏆 Note PFA (1A)", 0.0, 20.0, get_val('PFA_2', 14.0), 0.5, key=f"pfa_1a_{widget_key}")
-    with p2: modules_nv_1A = st.slider("❌ Modules Non Validés (1A)", 0, 12, int(get_val('Modules_Non_Valides', 0)), key=f"mnv_1a_{widget_key}")
-    with p3: redoublant_1A = 1 if st.checkbox("🔄 Redoublant 1A", value=bool(get_val('Redoublant', 0)), key=f"red_1a_{widget_key}") else 0
+    with p2: modules_nv_1A = st.slider("❌ Modules Non Validés", 0, 12, int(get_val('Modules_Non_Valides', 0)), key=f"mnv_1a_{widget_key}")
+    with p3:
+        # Redoublant = donnée réelle du dataset (non modifiable)
+        redoublant_1A = redoublant_reel
+        st.markdown(f"""
+        <div style="background:rgba(22,32,58,0.6); border:1px solid rgba(255,255,255,0.06);
+                    border-left: 4px solid {redoublant_col}; border-radius:12px; padding:12px 16px; margin-top:4px;">
+            <span style="font-size:0.75rem; color:#94a3b8; text-transform:uppercase; letter-spacing:1px;">🔄 Redoublant (Dataset)</span><br>
+            <b style="color:{redoublant_col}; font-size:1rem; font-family:'Poppins';">{redoublant_txt}</b>
+        </div>""", unsafe_allow_html=True)
 
     moy_s1_1A  = round(np.mean([mod1_s1_1A, mod2_s1_1A, mod3_s1_1A, mod4_s1_1A, mod5_s1_1A, ang1_1A, fr1_1A]), 2)
     moy_s2_1A  = round(np.mean([mod1_s2_1A, mod2_s2_1A, mod3_s2_1A, mod4_s2_1A, mod5_s2_1A, ang2_1A, fr2_1A, pfa_1A]), 2)
@@ -383,7 +396,15 @@ with tab2:
     p1, p2, p3 = st.columns(3)
     with p1: pfa_2A_v      = st.slider("🏆 Note PFA 2 (2A)", 0.0, 20.0, get_val('PFA_2', 14.0), 0.5, key=f"pfa_2a_{widget_key}")
     with p2: modules_nv_2A = st.slider("❌ Modules Non Validés (2A)", 0, 12, int(get_val('Modules_Non_Valides', 0)), key=f"mnv_2a_{widget_key}")
-    with p3: redoublant_2A = 1 if st.checkbox("🔄 Redoublant 2A", value=bool(get_val('Redoublant', 0)), key=f"red_2a_{widget_key}") else 0
+    with p3:
+        # Même valeur Redoublant réelle
+        redoublant_2A = redoublant_reel
+        st.markdown(f"""
+        <div style="background:rgba(22,32,58,0.6); border:1px solid rgba(255,255,255,0.06);
+                    border-left: 4px solid {redoublant_col}; border-radius:12px; padding:12px 16px; margin-top:4px;">
+            <span style="font-size:0.75rem; color:#94a3b8; text-transform:uppercase; letter-spacing:1px;">🔄 Redoublant (Dataset)</span><br>
+            <b style="color:{redoublant_col}; font-size:1rem; font-family:'Poppins';">{redoublant_txt}</b>
+        </div>""", unsafe_allow_html=True)
 
 # ─── Construction données ───────────────────────────────────────────────────────
 etudiant_1A = {
