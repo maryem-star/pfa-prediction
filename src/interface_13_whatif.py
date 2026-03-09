@@ -653,47 +653,42 @@ with tab3:
                 if p1A["danger_abs"]:
                     alertes_html += f"""
 <div style="background:rgba(255,255,255,0.03); border-left:4px solid #f43f5e; padding:12px 16px; border-radius:10px; margin-bottom:10px;">
-    <b style="color:#fda4af; display:block; margin-bottom:4px;">⏱️ Assiduité Critique ({p1A['total_abs']:.0f}h d'absence)</b>
-    <span style="color:#cbd5e1; font-size:0.9rem;">L'absentéisme est le premier facteur d'échec statitisque en 3A. Il est impératif de réduire vos absences à zéro.</span>
+<b style="color:#fda4af; display:block; margin-bottom:4px;">⏱️ Assiduité Critique ({p1A['total_abs']:.0f}h d'absence)</b>
+<span style="color:#cbd5e1; font-size:0.9rem;">L'absentéisme est le premier facteur d'échec statitisque en 3A. Il est impératif de réduire vos absences à zéro.</span>
 </div>"""
                 # 2. Redoublant
                 if p1A["danger_red"]:
                      alertes_html += f"""
 <div style="background:rgba(255,255,255,0.03); border-left:4px solid #f59e0b; padding:12px 16px; border-radius:10px; margin-bottom:10px;">
-    <b style="color:#fcd34d; display:block; margin-bottom:4px;">🔄 Historique de Redoublement</b>
-    <span style="color:#cbd5e1; font-size:0.9rem;">Votre statut de redoublant montre des fragilités antérieures. Un suivi rigoureux dès les premières semaines est crucial.</span>
+<b style="color:#fcd34d; display:block; margin-bottom:4px;">🔄 Historique de Redoublement</b>
+<span style="color:#cbd5e1; font-size:0.9rem;">Votre statut de redoublant montre des fragilités antérieures. Un suivi rigoureux dès les premières semaines est crucial.</span>
 </div>"""
                 # 3. Modules fail
                 if res["facteurs_risque_3A"] and len(res["modules_non_valides_liste"]) > 0:
                     mods = ", ".join(res["modules_non_valides_liste"])
                     alertes_html += f"""
 <div style="background:rgba(255,255,255,0.03); border-left:4px solid {color_theme}; padding:12px 16px; border-radius:10px; margin-bottom:10px;">
-    <b style="color:{color_theme}; display:block; margin-bottom:4px;">📚 Lacunes Prérequis Identifiées</b>
-    <span style="color:#cbd5e1; font-size:0.9rem;">Vous risquez de bloquer sur les modules suivants : <b>{mods}</b>.</span>
+<b style="color:{color_theme}; display:block; margin-bottom:4px;">📚 Lacunes Prérequis Identifiées</b>
+<span style="color:#cbd5e1; font-size:0.9rem;">Vous risquez de bloquer sur les modules suivants : <b>{mods}</b>.</span>
 </div>"""
 
                 st.markdown(f"""
-<div style="background:linear-gradient(135deg, {bg_theme} 0%, rgba(0,0,0,0.2) 100%); 
-            border-radius:20px; padding:32px; border:1px solid {border_theme}; 
-            box-shadow:0 10px 30px rgba(0,0,0,0.2); margin-bottom:20px;">
-    <h3 style="color:{color_theme}; font-family:'Poppins'; margin-top:0; font-size:1.6rem;">{titre}</h3>
-    
-    <div style="margin-bottom:24px;">
-        <p style="color:#e2e8f0; font-size:1rem; margin-bottom:16px;">
-            L'Intelligence Artificielle a détecté des blocages majeurs qui pourraient compromettre l'obtention de votre diplôme. 
-            Agissez dès maintenant sur ces points :
-        </p>
-        {alertes_html}
-    </div>
-
-    <div style="background:rgba(0,0,0,0.3); border-radius:12px; padding:16px; border-top:2px solid {color_theme};">
-        <b style="color:#e2e8f0; font-size:1.05rem; display:block; margin-bottom:12px;">🛠️ Plan d'Action Recommandé :</b>
-        <ul style="color:#cbd5e1; margin:0; padding-left:20px; font-size:0.95rem; line-height:1.6;">
-            <li style="margin-bottom:6px;"><b>Révision intensive:</b> Reprenez les cours des modules 1A/2A qui bloquent en 3A.</li>
-            <li style="margin-bottom:6px;"><b>Tutorat:</b> Demandez de l'aide à vos enseignants ou camarades sur les concepts fondamentaux non acquis.</li>
-            <li><b>Assiduité stricte:</b> Ne manquez aucune séance de TD/TP cette année.</li>
-        </ul>
-    </div>
+<div style="background:linear-gradient(135deg, {bg_theme} 0%, rgba(0,0,0,0.2) 100%); border-radius:20px; padding:32px; border:1px solid {border_theme}; box-shadow:0 10px 30px rgba(0,0,0,0.2); margin-bottom:20px;">
+<h3 style="color:{color_theme}; font-family:'Poppins'; margin-top:0; font-size:1.6rem;">{titre}</h3>
+<div style="margin-bottom:24px;">
+<p style="color:#e2e8f0; font-size:1rem; margin-bottom:16px;">
+L'Intelligence Artificielle a détecté des blocages majeurs qui pourraient compromettre l'obtention de votre diplôme. Agissez dès maintenant sur ces points :
+</p>
+{alertes_html}
+</div>
+<div style="background:rgba(0,0,0,0.3); border-radius:12px; padding:16px; border-top:2px solid {color_theme};">
+<b style="color:#e2e8f0; font-size:1.05rem; display:block; margin-bottom:12px;">🛠️ Plan d'Action Recommandé :</b>
+<ul style="color:#cbd5e1; margin:0; padding-left:20px; font-size:0.95rem; line-height:1.6;">
+<li style="margin-bottom:6px;"><b>Révision intensive:</b> Reprenez les cours des modules 1A/2A qui bloquent en 3A.</li>
+<li style="margin-bottom:6px;"><b>Tutorat:</b> Demandez de l'aide à vos enseignants ou camarades sur les concepts fondamentaux non acquis.</li>
+<li><b>Assiduité stricte:</b> Ne manquez aucune séance de TD/TP cette année.</li>
+</ul>
+</div>
 </div>
 """, unsafe_allow_html=True)
 
