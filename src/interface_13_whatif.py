@@ -252,7 +252,8 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 # ── Alerte Redoublant ──────────────────────────────────────────────────────────
 widget_key = str(selected_student_data.get('CNE', 'INCONNU'))
-redoublant_reel = int(selected_student_data.get('Redoublant', 0) or 0)
+_red_raw = selected_student_data.get('Redoublant', 0)
+redoublant_reel = 0 if (pd.isna(_red_raw) if hasattr(pd, 'isna') else False) else int(_red_raw or 0)
 
 if redoublant_reel:
     st.markdown("""
@@ -390,25 +391,25 @@ with tab2:
     c1, c2 = st.columns(2)
     with c1:
         st.markdown('<div class="section-hdr">Semestre 3</div>', unsafe_allow_html=True)
-        abs_s1_2A  = st.slider("⏱️ Absences S3 (heures)", 0, 60, int(get_val('Absences_S1', 0)), key=f"abs_s1_2a_{widget_key}")
-        mod1_s1_2A = st.slider(cur_labels["s3"][0], 0.0, 20.0, get_val('Module_S1_1'), 0.5, key=f"m1s1_2a_{widget_key}")
-        mod2_s1_2A = st.slider(cur_labels["s3"][1], 0.0, 20.0, get_val('Module_S1_2'), 0.5, key=f"m2s1_2a_{widget_key}")
-        mod3_s1_2A = st.slider(cur_labels["s3"][2], 0.0, 20.0, get_val('Module_S1_3'), 0.5, key=f"m3s1_2a_{widget_key}")
-        mod4_s1_2A = st.slider(cur_labels["s3"][3], 0.0, 20.0, get_val('Module_S1_4'), 0.5, key=f"m4s1_2a_{widget_key}")
-        mod5_s1_2A = st.slider(cur_labels["s3"][4], 0.0, 20.0, get_val('Module_S1_5'), 0.5, key=f"m5s1_2a_{widget_key}")
-        ang1_2A    = st.slider("Anglais Technique S3", 0.0, 20.0, get_val('Anglais_Tech_1', 13.0), 0.5, key=f"ang1_2a_{widget_key}")
-        fr1_2A     = st.slider("Français Pro. S3",     0.0, 20.0, get_val('Francais_Pro_1', 13.0), 0.5, key=f"fr1_2a_{widget_key}")
+        abs_s1_2A  = st.slider("⏱️ Absences S3 (heures)", 0, 60, int(get_val('Absences_S3', get_val('Absences_S1', 0))), key=f"abs_s1_2a_{widget_key}")
+        mod1_s1_2A = st.slider(cur_labels["s3"][0], 0.0, 20.0, get_val('Module_S3_1', get_val('Module_S1_1')), 0.5, key=f"m1s1_2a_{widget_key}")
+        mod2_s1_2A = st.slider(cur_labels["s3"][1], 0.0, 20.0, get_val('Module_S3_2', get_val('Module_S1_2')), 0.5, key=f"m2s1_2a_{widget_key}")
+        mod3_s1_2A = st.slider(cur_labels["s3"][2], 0.0, 20.0, get_val('Module_S3_3', get_val('Module_S1_3')), 0.5, key=f"m3s1_2a_{widget_key}")
+        mod4_s1_2A = st.slider(cur_labels["s3"][3], 0.0, 20.0, get_val('Module_S3_4', get_val('Module_S1_4')), 0.5, key=f"m4s1_2a_{widget_key}")
+        mod5_s1_2A = st.slider(cur_labels["s3"][4], 0.0, 20.0, get_val('Module_S3_5', get_val('Module_S1_5')), 0.5, key=f"m5s1_2a_{widget_key}")
+        ang1_2A    = st.slider("Anglais Technique S3", 0.0, 20.0, get_val('Anglais_Tech_S3', get_val('Anglais_Tech_1', 13.0)), 0.5, key=f"ang1_2a_{widget_key}")
+        fr1_2A     = st.slider("Français Pro. S3",     0.0, 20.0, get_val('Francais_Pro_S3', get_val('Francais_Pro_1', 13.0)), 0.5, key=f"fr1_2a_{widget_key}")
 
     with c2:
         st.markdown('<div class="section-hdr">Semestre 4</div>', unsafe_allow_html=True)
-        abs_s2_2A  = st.slider("⏱️ Absences S4 (heures)", 0, 60, int(get_val('Absences_S2', 0)), key=f"abs_s2_2a_{widget_key}")
-        mod1_s2_2A = st.slider(cur_labels["s4"][0], 0.0, 20.0, get_val('Module_S2_1'), 0.5, key=f"m1s2_2a_{widget_key}")
-        mod2_s2_2A = st.slider(cur_labels["s4"][1], 0.0, 20.0, get_val('Module_S2_2'), 0.5, key=f"m2s2_2a_{widget_key}")
-        mod3_s2_2A = st.slider(cur_labels["s4"][2], 0.0, 20.0, get_val('Module_S2_3'), 0.5, key=f"m3s2_2a_{widget_key}")
-        mod4_s2_2A = st.slider(cur_labels["s4"][3], 0.0, 20.0, get_val('Module_S2_4'), 0.5, key=f"m4s2_2a_{widget_key}")
-        mod5_s2_2A = st.slider(cur_labels["s4"][4], 0.0, 20.0, get_val('Module_S2_5'), 0.5, key=f"m5s2_2a_{widget_key}")
-        ang2_2A    = st.slider("Anglais Technique S4", 0.0, 20.0, get_val('Anglais_Tech_2', 13.0), 0.5, key=f"ang2_2a_{widget_key}")
-        fr2_2A     = st.slider("Français Pro. S4",     0.0, 20.0, get_val('Francais_Pro_2', 13.0), 0.5, key=f"fr2_2a_{widget_key}")
+        abs_s2_2A  = st.slider("⏱️ Absences S4 (heures)", 0, 60, int(get_val('Absences_S4', get_val('Absences_S2', 0))), key=f"abs_s2_2a_{widget_key}")
+        mod1_s2_2A = st.slider(cur_labels["s4"][0], 0.0, 20.0, get_val('Module_S4_1', get_val('Module_S2_1')), 0.5, key=f"m1s2_2a_{widget_key}")
+        mod2_s2_2A = st.slider(cur_labels["s4"][1], 0.0, 20.0, get_val('Module_S4_2', get_val('Module_S2_2')), 0.5, key=f"m2s2_2a_{widget_key}")
+        mod3_s2_2A = st.slider(cur_labels["s4"][2], 0.0, 20.0, get_val('Module_S4_3', get_val('Module_S2_3')), 0.5, key=f"m3s2_2a_{widget_key}")
+        mod4_s2_2A = st.slider(cur_labels["s4"][3], 0.0, 20.0, get_val('Module_S4_4', get_val('Module_S2_4')), 0.5, key=f"m4s2_2a_{widget_key}")
+        mod5_s2_2A = st.slider(cur_labels["s4"][4], 0.0, 20.0, get_val('Module_S4_5', get_val('Module_S2_5')), 0.5, key=f"m5s2_2a_{widget_key}")
+        ang2_2A    = st.slider("Anglais Technique S4", 0.0, 20.0, get_val('Anglais_Tech_S4', get_val('Anglais_Tech_2', 13.0)), 0.5, key=f"ang2_2a_{widget_key}")
+        fr2_2A     = st.slider("Français Pro. S4",     0.0, 20.0, get_val('Francais_Pro_S4', get_val('Francais_Pro_2', 13.0)), 0.5, key=f"fr2_2a_{widget_key}")
 
     p1, p2, p3 = st.columns(3)
     with p1: pfa_2A_v      = st.slider("🏆 Note PFA 2 (2A)", 0.0, 20.0, get_val('PFA_2', 14.0), 0.5, key=f"pfa_2a_{widget_key}")
