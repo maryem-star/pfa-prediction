@@ -92,14 +92,18 @@ def detect_filiere(filename: str) -> str:
     return "inconnu"
 
 
-def load_filiere(filepath: str) -> pd.DataFrame:
-    """
-    Charge un fichier Excel de n'importe quelle filière.
-    Utilise le mapping par position.
-    """
-    df_raw = pd.read_excel(filepath, header=3)
-    cols = list(df_raw.columns)
+def _encode_redoublant(series: pd.Series) -> pd.Series:
+    """Encode une colonne Oui/Non en 0/1 de façon robuste."""
+    r = series.astype(str).str.strip().str.lower()
+    return r.map(
+        {"oui": 1, "non": 0, "1": 1, "0": 0, "1.0": 1, "0.0": 0, "nan": 0, "true": 1, "false": 0}
+    ).fillna(0).astype(int)
 
+
+def _read_sheet_1A(filepath: str, sheet_name: str) -> pd.DataFrame:
+    """Lit la feuille 1ère Année et retourne un DataFrame avec les colonnes 1A."""
+    df = pd.read_excel(filepath, sheet_name=sheet_name, header=3)
+    cols = list(df.columns)
     col11_empty = str(cols[11]).startswith("Unnamed") or str(cols[11]).strip() == ""
 
     if col11_empty:
@@ -123,18 +127,117 @@ def load_filiere(filepath: str) -> pd.DataFrame:
     else:
         mapping = {cols[i]: POSITION_MAP.get(i, f"Col_{i}") for i in range(len(cols))}
 
-    df_raw = df_raw.rename(columns=mapping)
+    df = df.rename(columns=mapping)
+    if "Col_vide" in df.columns:
+        df = df.drop(columns=["Col_vide"])
+    df = df.dropna(subset=["CNE"])
+    return df
 
-    fname = os.path.basename(filepath)
+
+def _read_sheet_2A(filepath: str, sheet_name: str) -> pd.DataFrame:
+    """
+    Lit la feuille 2ème Année et retourne un DataFrame avec :
+    - CNE (pour la jointure)
+    - Redoublant_2A (0/1)
+    - Modules S3/S4 (Module_S3_1 ... Module_S4_5, Anglais_Tech_S3/S4, etc.)
+    """
+    df = pd.read_excel(filepath, sheet_name=sheet_name, header=3)
+    cols = list(df.columns)
+    if len(cols) < 13:
+        return pd.DataFrame()
+
+    col11_empty = str(cols[11]).startswith("Unnamed") or str(cols[11]).strip() == ""
+
+    if col11_empty:
+        mapping = {
+            cols[0]:  "CNE",       cols[1]: "Nom",       cols[2]: "Prenom",
+            cols[3]:  "Absences_S3",
+            cols[4]:  "Module_S3_1", cols[5]:  "Module_S3_2",
+            cols[6]:  "Module_S3_3", cols[7]:  "Module_S3_4",
+            cols[8]:  "Module_S3_5",
+            cols[9]:  "Anglais_Tech_S3", cols[10]: "Francais_Pro_S3",
+            cols[11]: "Col_vide",
+            cols[12]: "Moyenne_S3",
+            cols[13]: "Absences_S4",
+            cols[14]: "Module_S4_1", cols[15]: "Module_S4_2",
+            cols[16]: "Module_S4_3", cols[17]: "Module_S4_4",
+            cols[18]: "Module_S4_5",
+            cols[19]: "Anglais_Tech_S4", cols[20]: "Francais_Pro_S4",
+        }
+        if len(cols) > 21: mapping[cols[21]] = "PFA_4"
+        if len(cols) > 22: mapping[cols[22]] = "Moyenne_S4"
+        if len(cols) > 23: mapping[cols[23]] = "Moyenne_Annuelle_2A"
+        if len(cols) > 24: mapping[cols[24]] = "Modules_Non_Valides_2A"
+        if len(cols) > 25: mapping[cols[25]] = "Redoublant_2A"
+    else:
+        mapping = {cols[0]: "CNE"}
+
+    df = df.rename(columns=mapping)
+    if "Col_vide" in df.columns:
+        df = df.drop(columns=["Col_vide"])
+    df = df.dropna(subset=["CNE"])
+
+    # Encoder Redoublant_2A
+    if "Redoublant_2A" in df.columns:
+        df["Redoublant_2A"] = _encode_redoublant(df["Redoublant_2A"])
+    else:
+        df["Redoublant_2A"] = 0
+
+    keep = ["CNE", "Redoublant_2A"] + [
+        c for c in df.columns
+        if c.startswith("Module_S") or c.startswith("Absences_S")
+        or c.startswith("Anglais_Tech_S") or c.startswith("Francais_Pro_S")
+        or c in ("Moyenne_S3", "Moyenne_S4", "Moyenne_Annuelle_2A",
+                 "Modules_Non_Valides_2A", "PFA_4")
+    ]
+    return df[[c for c in keep if c in df.columns]]
+
+
+def load_filiere(filepath: str) -> pd.DataFrame:
+    """
+    Charge un fichier Excel multi-feuilles (1ère + 2ème + 3ème Année).
+    Stratégie :
+      - Base  : feuille 1ère Année (S1/S2, Redoublant_1A)
+      - Fusion: feuille 2ème Année → ajoute Redoublant_2A + données S3/S4
+      - Redoublant final = max(Redoublant_1A, Redoublant_2A)
+    """
+    fname       = os.path.basename(filepath)
     filiere_key = detect_filiere(fname)
-    df_raw["Filiere"]      = fname.replace(".xlsx", "").replace(".xls", "")
-    df_raw["Filiere_Code"] = FILIERE_MAP.get(filiere_key, 0)
-    df_raw["Filiere_Key"]  = filiere_key
 
-    if "Col_vide" in df_raw.columns:
-        df_raw = df_raw.drop(columns=["Col_vide"])
+    xl       = pd.ExcelFile(filepath)
+    sheets   = xl.sheet_names
+    sheet_1a = next((s for s in sheets if "1" in s or "premi" in s.lower()), sheets[0])
+    sheet_2a = next((s for s in sheets if "2" in s or "deuxi" in s.lower()), None)
 
-    return df_raw
+    # ── Lire 1A ──────────────────────────────────────────────────────────────
+    df = _read_sheet_1A(filepath, sheet_1a)
+    df["Filiere"]      = fname.replace(".xlsx", "").replace(".xls", "")
+    df["Filiere_Code"] = FILIERE_MAP.get(filiere_key, 0)
+    df["Filiere_Key"]  = filiere_key
+
+    # Encoder Redoublant_1A
+    if "Redoublant" in df.columns:
+        df["Redoublant"] = _encode_redoublant(df["Redoublant"])
+    else:
+        df["Redoublant"] = 0
+
+    # ── Lire 2A et fusionner ─────────────────────────────────────────────────
+    if sheet_2a:
+        try:
+            df_2a = _read_sheet_2A(filepath, sheet_2a)
+            if not df_2a.empty:
+                df = df.merge(df_2a, on="CNE", how="left")
+                # Redoublant final = 1 si redoublant en 1A OU en 2A
+                if "Redoublant_2A" in df.columns:
+                    df["Redoublant_2A"] = df["Redoublant_2A"].fillna(0).astype(int)
+                    df["Redoublant"] = ((df["Redoublant"] == 1) | (df["Redoublant_2A"] == 1)).astype(int)
+                    nb_red = df["Redoublant"].sum()
+                    print(f"  [{fname}] 2A fusionnée — {nb_red} redoublant(s) au total (1A+2A)")
+        except Exception as e:
+            print(f"  [{fname}] Avertissement 2A : {e}")
+
+    return df
+
 
 
 def clean_data(df: pd.DataFrame) -> pd.DataFrame:
