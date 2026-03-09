@@ -227,22 +227,22 @@ df_fil = df_students[df_students['Filiere'].str.contains(filiere_key, case=False
 if df_fil.empty:
     df_fil = df_students
 
-    with c_etud:
-        st.markdown("**👤 Étudiant**")
-        student_options = []
-        student_dict = {}
-        for _, row in df_fil.iterrows():
-            cne    = row.get('CNE', 'INCONNU')
-            nom    = row.get('Nom', '')
-            prenom = row.get('Prenom', '')
-            is_red = int(row.get('Redoublant_1A', 0)) == 1 or int(row.get('Redoublant_2A', 0)) == 1
-            # Marqueur rouge visible dans le menu déroulant pour les redoublants globaux
-            label = f"{'🔴 ' if is_red else ''}{cne} — {nom} {prenom}"
-            student_options.append(label)
-            student_dict[label] = row
+with c_etud:
+    st.markdown("**👤 Étudiant**")
+    student_options = []
+    student_dict = {}
+    for _, row in df_fil.iterrows():
+        cne    = row.get('CNE', 'INCONNU')
+        nom    = row.get('Nom', '')
+        prenom = row.get('Prenom', '')
+        is_red = int(row.get('Redoublant_1A', 0)) == 1 or int(row.get('Redoublant_2A', 0)) == 1
+        # Marqueur rouge visible dans le menu déroulant pour les redoublants globaux
+        label = f"{'🔴 ' if is_red else ''}{cne} — {nom} {prenom}"
+        student_options.append(label)
+        student_dict[label] = row
 
-        selected_student_label = st.selectbox("Étudiant", student_options, label_visibility="collapsed")
-        selected_student_data  = student_dict[selected_student_label]
+    selected_student_label = st.selectbox("Étudiant", student_options, label_visibility="collapsed")
+    selected_student_data  = student_dict[selected_student_label]
 
 with c_info:
     st.markdown("**📌 Filière choisie**")
