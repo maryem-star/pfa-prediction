@@ -227,22 +227,22 @@ df_fil = df_students[df_students['Filiere'].str.contains(filiere_key, case=False
 if df_fil.empty:
     df_fil = df_students
 
-with c_etud:
-    st.markdown("**👤 Étudiant**")
-    student_options = []
-    student_dict = {}
-    for _, row in df_fil.iterrows():
-        cne    = row.get('CNE', 'INCONNU')
-        nom    = row.get('Nom', '')
-        prenom = row.get('Prenom', '')
-        is_red = int(row.get('Redoublant', 0)) == 1
-        # Marqueur rouge visible dans le menu déroulant pour les redoublants
-        label = f"{'🔴 ' if is_red else ''}{cne} — {nom} {prenom}"
-        student_options.append(label)
-        student_dict[label] = row
+    with c_etud:
+        st.markdown("**👤 Étudiant**")
+        student_options = []
+        student_dict = {}
+        for _, row in df_fil.iterrows():
+            cne    = row.get('CNE', 'INCONNU')
+            nom    = row.get('Nom', '')
+            prenom = row.get('Prenom', '')
+            is_red = int(row.get('Redoublant_1A', 0)) == 1 or int(row.get('Redoublant_2A', 0)) == 1
+            # Marqueur rouge visible dans le menu déroulant pour les redoublants globaux
+            label = f"{'🔴 ' if is_red else ''}{cne} — {nom} {prenom}"
+            student_options.append(label)
+            student_dict[label] = row
 
-    selected_student_label = st.selectbox("Étudiant", student_options, label_visibility="collapsed")
-    selected_student_data  = student_dict[selected_student_label]
+        selected_student_label = st.selectbox("Étudiant", student_options, label_visibility="collapsed")
+        selected_student_data  = student_dict[selected_student_label]
 
 with c_info:
     st.markdown("**📌 Filière choisie**")
@@ -250,23 +250,17 @@ with c_info:
 
 st.markdown('</div>', unsafe_allow_html=True)
 
-# ── Alerte Redoublant ──────────────────────────────────────────────────────────
+# ── Variables Redoublant ───────────────────────────────────────────────────────
 widget_key = str(selected_student_data.get('CNE', 'INCONNU'))
-_red_raw = selected_student_data.get('Redoublant', 0)
-redoublant_reel = 0 if (pd.isna(_red_raw) if hasattr(pd, 'isna') else False) else int(_red_raw or 0)
 
-if redoublant_reel:
-    st.markdown("""
-    <div style="background: rgba(244,63,94,0.12); border: 1px solid #f43f5e;
-                border-left: 6px solid #f43f5e; border-radius: 14px;
-                padding: 16px 22px; margin-bottom: 16px; display:flex; align-items:center; gap:14px;">
-        <span style="font-size:2rem;">⚠️</span>
-        <div>
-            <b style="color:#fda4af; font-family:'Poppins'; font-size:1rem;">Étudiant Redoublant</b><br>
-            <span style="color:#94a3b8; font-size:0.88rem;">Cet étudiant a déjà redoublé une année. 
-            L'IA tient compte de ce facteur de risque dans ses prédictions.</span>
-        </div>
-    </div>""", unsafe_allow_html=True)
+_r1a = selected_student_data.get('Redoublant_1A', 0)
+redoublant_1A = 0 if (pd.isna(_r1a) if hasattr(pd, 'isna') else False) else int(_r1a or 0)
+
+_r2a = selected_student_data.get('Redoublant_2A', 0)
+redoublant_2A = 0 if (pd.isna(_r2a) if hasattr(pd, 'isna') else False) else int(_r2a or 0)
+
+# Redoublant global pour la pastille dans le titre du selecteur
+redoublant_global = bool(redoublant_1A or redoublant_2A)
 
 
 # ─── HELPER ────────────────────────────────────────────────────────────────────
@@ -316,9 +310,12 @@ mod_labels = {
 }
 cur_labels = mod_labels.get(filiere_key, mod_labels["ite"])
 
-# Texte et couleur dérivés de redoublant_reel (défini plus haut)
-redoublant_txt = "🔴 Oui — Redoublant" if redoublant_reel else "🟢 Non — Première inscription"
-redoublant_col = "#f43f5e" if redoublant_reel else "#10b981"
+# Textes et couleurs dérivés
+red_1a_txt = "🔴 Oui — Redoublé en 1A" if redoublant_1A else "🟢 Non — Réussi du 1er coup"
+red_1a_col = "#f43f5e" if redoublant_1A else "#10b981"
+
+red_2a_txt = "🔴 Oui — Redoublé en 2A" if redoublant_2A else "🟢 Non — Réussi du 1er coup"
+red_2a_col = "#f43f5e" if redoublant_2A else "#10b981"
 
 # ════════════════════════ ONGLETS ════════════════════════════════════════════
 tab1, tab2, tab3 = st.tabs([
@@ -357,13 +354,12 @@ with tab1:
     with p1: pfa_1A = st.slider("🏆 Note PFA (1A)", 0.0, 20.0, get_val('PFA_2', 14.0), 0.5, key=f"pfa_1a_{widget_key}")
     with p2: modules_nv_1A = st.slider("❌ Modules Non Validés", 0, 12, int(get_val('Modules_Non_Valides', 0)), key=f"mnv_1a_{widget_key}")
     with p3:
-        # Redoublant = donnée réelle du dataset (non modifiable)
-        redoublant_1A = redoublant_reel
+        # Redoublant 1A
         st.markdown(f"""
         <div style="background:rgba(22,32,58,0.6); border:1px solid rgba(255,255,255,0.06);
-                    border-left: 4px solid {redoublant_col}; border-radius:12px; padding:12px 16px; margin-top:4px;">
-            <span style="font-size:0.75rem; color:#94a3b8; text-transform:uppercase; letter-spacing:1px;">🔄 Redoublant (Dataset)</span><br>
-            <b style="color:{redoublant_col}; font-size:1rem; font-family:'Poppins';">{redoublant_txt}</b>
+                    border-left: 4px solid {red_1a_col}; border-radius:12px; padding:12px 16px; margin-top:4px;">
+            <span style="font-size:0.75rem; color:#94a3b8; text-transform:uppercase; letter-spacing:1px;">🔄 Redoublant 1ère Année</span><br>
+            <b style="color:{red_1a_col}; font-size:1rem; font-family:'Poppins';">{red_1a_txt}</b>
         </div>""", unsafe_allow_html=True)
 
     moy_s1_1A  = round(np.mean([mod1_s1_1A, mod2_s1_1A, mod3_s1_1A, mod4_s1_1A, mod5_s1_1A, ang1_1A, fr1_1A]), 2)
@@ -415,13 +411,12 @@ with tab2:
     with p1: pfa_2A_v      = st.slider("🏆 Note PFA 2 (2A)", 0.0, 20.0, get_val('PFA_2', 14.0), 0.5, key=f"pfa_2a_{widget_key}")
     with p2: modules_nv_2A = st.slider("❌ Modules Non Validés (2A)", 0, 12, int(get_val('Modules_Non_Valides', 0)), key=f"mnv_2a_{widget_key}")
     with p3:
-        # Même valeur Redoublant réelle
-        redoublant_2A = redoublant_reel
+        # Redoublant 2A
         st.markdown(f"""
         <div style="background:rgba(22,32,58,0.6); border:1px solid rgba(255,255,255,0.06);
-                    border-left: 4px solid {redoublant_col}; border-radius:12px; padding:12px 16px; margin-top:4px;">
-            <span style="font-size:0.75rem; color:#94a3b8; text-transform:uppercase; letter-spacing:1px;">🔄 Redoublant (Dataset)</span><br>
-            <b style="color:{redoublant_col}; font-size:1rem; font-family:'Poppins';">{redoublant_txt}</b>
+                    border-left: 4px solid {red_2a_col}; border-radius:12px; padding:12px 16px; margin-top:4px;">
+            <span style="font-size:0.75rem; color:#94a3b8; text-transform:uppercase; letter-spacing:1px;">🔄 Redoublant 2ème Année</span><br>
+            <b style="color:{red_2a_col}; font-size:1rem; font-family:'Poppins';">{red_2a_txt}</b>
         </div>""", unsafe_allow_html=True)
 
 # ─── Construction données ───────────────────────────────────────────────────────
@@ -434,7 +429,8 @@ etudiant_1A = {
     "Anglais_Tech_2": ang2_1A, "Francais_Pro_2": fr2_1A,
     "PFA_2": pfa_1A,
     "Absences_S1": float(abs_s1_1A), "Absences_S2": float(abs_s2_1A),
-    "Redoublant": redoublant_1A, "Modules_Non_Valides": float(modules_nv_1A),
+    "Redoublant_1A": redoublant_1A, "Redoublant_2A": redoublant_2A, "Redoublant": 1 if (redoublant_1A or redoublant_2A) else 0,
+    "Modules_Non_Valides": float(modules_nv_1A),
     "Moyenne_S1": moy_s1_1A, "Moyenne_S2": moy_s2_1A, "Moyenne_Annuelle": moy_ann_1A,
 }
 etudiant_2A = {
@@ -444,8 +440,10 @@ etudiant_2A = {
     "Module_S2_1": mod1_s2_2A, "Module_S2_2": mod2_s2_2A, "Module_S2_3": mod3_s2_2A,
     "Module_S2_4": mod4_s2_2A, "Module_S2_5": mod5_s2_2A,
     "Anglais_Tech_2": ang2_2A, "Francais_Pro_2": fr2_2A,
-    "PFA_2": pfa_2A_v, "Absences_S1": float(abs_s1_2A), "Absences_S2": float(abs_s2_2A),
-    "Redoublant": redoublant_2A, "Modules_Non_Valides": float(modules_nv_2A),
+    "PFA_2": pfa_2A_v,
+    "Absences_S1": float(abs_s1_2A), "Absences_S2": float(abs_s2_2A),
+    "Redoublant_1A": redoublant_1A, "Redoublant_2A": redoublant_2A, "Redoublant": 1 if (redoublant_1A or redoublant_2A) else 0,
+    "Modules_Non_Valides": float(modules_nv_2A),
 }
 
 # ════════════════════════ TAB 3 : RÉSULTATS ═══════════════════════════════════

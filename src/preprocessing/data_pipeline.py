@@ -72,7 +72,6 @@ FEATURE_COLS = [
     "Danger_Absences",
     "Danger_Redoublant",
     "Score_Danger",
-    "Profil_Comportement",
 ]
 
 TARGET_COL = "Moyenne_Annuelle"
@@ -217,9 +216,10 @@ def load_filiere(filepath: str) -> pd.DataFrame:
 
     # Encoder Redoublant_1A
     if "Redoublant" in df.columns:
-        df["Redoublant"] = _encode_redoublant(df["Redoublant"])
+        df["Redoublant_1A"] = _encode_redoublant(df["Redoublant"])
+        df = df.drop(columns=["Redoublant"])
     else:
-        df["Redoublant"] = 0
+        df["Redoublant_1A"] = 0
 
     # ── Lire 2A et fusionner ─────────────────────────────────────────────────
     if sheet_2a:
@@ -227,14 +227,24 @@ def load_filiere(filepath: str) -> pd.DataFrame:
             df_2a = _read_sheet_2A(filepath, sheet_2a)
             if not df_2a.empty:
                 df = df.merge(df_2a, on="CNE", how="left")
-                # Redoublant final = 1 si redoublant en 1A OU en 2A
+                # Redoublant_2A est fusionné (NaN si pas de 2A -> 0)
                 if "Redoublant_2A" in df.columns:
                     df["Redoublant_2A"] = df["Redoublant_2A"].fillna(0).astype(int)
-                    df["Redoublant"] = ((df["Redoublant"] == 1) | (df["Redoublant_2A"] == 1)).astype(int)
-                    nb_red = df["Redoublant"].sum()
-                    print(f"  [{fname}] 2A fusionnée — {nb_red} redoublant(s) au total (1A+2A)")
+                else:
+                    df["Redoublant_2A"] = 0
+                
+                # Créer le Redoublant global pour le ML
+                df["Redoublant"] = ((df["Redoublant_1A"] == 1) | (df["Redoublant_2A"] == 1)).astype(int)
+                nb_red = df["Redoublant"].sum()
+                print(f"  [{fname}] 2A fusionnée — {nb_red} redoublant(s) au total (1A+2A)")
         except Exception as e:
             print(f"  [{fname}] Avertissement 2A : {e}")
+
+    # Fallback si pas de 2A du tout
+    if "Redoublant" not in df.columns:
+        df["Redoublant"] = df["Redoublant_1A"]
+    if "Redoublant_2A" not in df.columns:
+        df["Redoublant_2A"] = 0
 
     return df
 
@@ -264,7 +274,8 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
 
 def handle_missing(df: pd.DataFrame) -> pd.DataFrame:
     """Imputation par médiane."""
-    num_cols = [c for c in FEATURE_COLS + [TARGET_COL] if c in df.columns]
+    # Les colonnes cibles : ajouter Redoublant_1A et Redoublant_2A s'ils ne sont pas listés
+    num_cols = [c for c in FEATURE_COLS + [TARGET_COL, "Redoublant_1A", "Redoublant_2A"] if c in df.columns]
     for col in num_cols:
         if col in df.columns and df[col].isnull().any():
             df[col] = df[col].fillna(df[col].median())
@@ -336,16 +347,27 @@ def create_target_binary(df: pd.DataFrame) -> pd.DataFrame:
 
     abs_s1 = pd.to_numeric(df.get("Absences_S1", pd.Series(0)), errors="coerce").fillna(0)
     abs_s2 = pd.to_numeric(df.get("Absences_S2", pd.Series(0)), errors="coerce").fillna(0)
-    df["Danger_Absences"]   = ((abs_s1 > 10) | (abs_s2 > 10)).astype(int)
-    df["Danger_Redoublant"] = df.get("Redoublant", pd.Series(0)).astype(int)
-    df["Score_Danger"]      = df["Danger_Absences"] + df["Danger_Redoublant"]
+    df["Danger_Absences"]   = ((df.get("Absences_S1", 0) > 10) | (df.get("Absences_S2", 0) > 10)).astype(int)
+    df["Danger_Redoublant"] = df.get("Redoublant", 0).astype(int)
 
-    total_abs = abs_s1 + abs_s2
-    df["Profil_Comportement"] = pd.cut(
-        total_abs,
-        bins=[-1, 5, 15, 30, 9999],
-        labels=[0, 1, 2, 3]
-    ).astype(int)
+    # Score de risque (0 à 3)
+    df["Score_Danger"] = (
+        df["Danger_Absences"] +
+        df["Danger_Redoublant"] +
+        (df.get("Ratio_NV", 0) > 0.5).astype(int)
+    )
+
+    # Profil comportemental (catégoriel)
+    def_profil = lambda r: "Critique" if r["Score_Danger"] >= 2 else ("Alerte" if r["Score_Danger"] == 1 else "Stable")
+    df["Profil_Comportement"] = df.apply(def_profil, axis=1)
+
+    # FEATURES_FINAL = toutes les variables utiles pour l'entraînement + l'ID/Nom
+    FEATURES_FINAL = list(FEATURE_COLS) + [
+        "Filiere", "Filiere_Code", "Filiere_Key", "Redoublant_1A", "Redoublant_2A", TARGET_COL,
+        "Danger_Absences", "Danger_Redoublant", "Score_Danger", "Profil_Comportement",
+        "Progression", "Total_Absences", "Moy_Module1", "Moy_Technique_S1", "Moy_Technique_S2",
+        "Score_Prereq_Global", "Ratio_NV", "Stabilite_Notes", "PFA_Excellence"
+    ]
 
     counts = df["Reussite"].value_counts().to_dict()
     print(f"Distribution: Réussi(1)={counts.get(1,0)} | Échec(0)={counts.get(0,0)}")
@@ -453,10 +475,12 @@ def run_pipeline(filenames=None, test_size=0.2, random_state=42,
 
     print(f"Après nettoyage: {len(df)} étudiants valides")
 
-    # Features utilisées
+    # Features utilisées pour le modèle ML (doivent être purement numériques)
     extra = ["Progression", "Total_Absences", "Moy_Module1",
              "Moy_Technique_S1", "Moy_Technique_S2", "Score_Prereq_Global",
-             "Ratio_NV", "Stabilite_Notes", "PFA_Excellence"]
+             "Ratio_NV", "Stabilite_Notes", "PFA_Excellence",
+             "Danger_Absences", "Danger_Redoublant", "Score_Danger",
+             "Redoublant_1A", "Redoublant_2A"]
     available_features = [c for c in FEATURE_COLS + extra if c in df.columns]
 
     # Sauvegarder le CSV propre
