@@ -622,28 +622,28 @@ with tab3:
             abs_css = "danger-abs" if p1A["danger_abs"] else "safe-abs"
             red_css = "danger-abs" if p1A["danger_red"] else "safe-abs"
             st.markdown(f"""
-            <div style="background:rgba(15,23,42,0.8); border-radius:20px; padding:28px 24px; border:1px solid rgba(255,255,255,0.06); box-shadow:0 10px 30px rgba(0,0,0,0.3); backdrop-filter:blur(10px);">
-                <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
-                    <div style="font-size:2rem; background:rgba(255,255,255,0.05); width:54px; height:54px; display:flex; align-items:center; justify-content:center; border-radius:14px;">{pe}</div>
-                    <div>
-                        <h4 style="margin:0; font-family:'Poppins'; font-size:1.3rem; color:white;">{pl}</h4>
-                        <span style="color:#94a3b8; font-size:0.85rem; text-transform:uppercase; letter-spacing:1px;">Profil Comportemental</span>
-                    </div>
-                </div>
-                
-                <div style="background:rgba(0,0,0,0.2); border-radius:12px; padding:12px 16px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
-                    <span style="color:#64748b; font-size:0.9rem;">Total absences (S1+S2)</span>
-                    <b style="color:white; font-size:1rem; font-family:'Poppins';">{p1A['total_abs']:.0f}h</b>
-                </div>
-                
-                <div style="padding:10px 14px; border-radius:10px; margin-bottom:8px; border-left:4px solid {'#f43f5e' if p1A['danger_abs'] else '#10b981'}; background:rgba(255,255,255,0.03);">
-                    <span style="color:white; font-size:0.9rem;">{'⚠️' if p1A['danger_abs'] else '✅'} Absences <span style="color:#94a3b8;">({p1A['abs_s1']:.0f}h S1 + {p1A['abs_s2']:.0f}h S2)</span></span>
-                </div>
-                
-                <div style="padding:10px 14px; border-radius:10px; border-left:4px solid {'#f43f5e' if p1A['danger_red'] else '#10b981'}; background:rgba(255,255,255,0.03);">
-                    <span style="color:white; font-size:0.9rem;">{'⚠️' if p1A['danger_red'] else '✅'} Redoublant <span style="color:#94a3b8;">({'Oui' if redoublant_1A else 'Non'})</span></span>
-                </div>
-            </div>""", unsafe_allow_html=True)
+<div style="background:rgba(15,23,42,0.8); border-radius:20px; padding:28px 24px; border:1px solid rgba(255,255,255,0.06); box-shadow:0 10px 30px rgba(0,0,0,0.3); backdrop-filter:blur(10px);">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+        <div style="font-size:2rem; background:rgba(255,255,255,0.05); width:54px; height:54px; display:flex; align-items:center; justify-content:center; border-radius:14px;">{pe}</div>
+        <div>
+            <h4 style="margin:0; font-family:'Poppins'; font-size:1.3rem; color:white;">{pl}</h4>
+            <span style="color:#94a3b8; font-size:0.85rem; text-transform:uppercase; letter-spacing:1px;">Profil Comportemental</span>
+        </div>
+    </div>
+    
+    <div style="background:rgba(0,0,0,0.2); border-radius:12px; padding:12px 16px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+        <span style="color:#64748b; font-size:0.9rem;">Total absences (S1+S2)</span>
+        <b style="color:white; font-size:1rem; font-family:'Poppins';">{p1A['total_abs']:.0f}h</b>
+    </div>
+    
+    <div style="padding:10px 14px; border-radius:10px; margin-bottom:8px; border-left:4px solid {'#f43f5e' if p1A['danger_abs'] else '#10b981'}; background:rgba(255,255,255,0.03);">
+        <span style="color:white; font-size:0.9rem;">{'⚠️' if p1A['danger_abs'] else '✅'} Absences <span style="color:#94a3b8;">({p1A['abs_s1']:.0f}h S1 + {p1A['abs_s2']:.0f}h S2)</span></span>
+    </div>
+    
+    <div style="padding:10px 14px; border-radius:10px; border-left:4px solid {'#f43f5e' if p1A['danger_red'] else '#10b981'}; background:rgba(255,255,255,0.03);">
+        <span style="color:white; font-size:0.9rem;">{'⚠️' if p1A['danger_red'] else '✅'} Redoublant <span style="color:#94a3b8;">({'Oui' if redoublant_1A else 'Non'})</span></span>
+    </div>
+</div>""", unsafe_allow_html=True)
 
             if res["facteurs_risque_3A"]:
                 st.markdown("<br><b style='color:#fda4af; font-family:\"Poppins\"; font-size:1.1rem;'>⚠️ Facteurs de Risque Moteurs</b>", unsafe_allow_html=True)
