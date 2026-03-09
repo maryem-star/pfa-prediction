@@ -141,18 +141,22 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     """Supprime les lignes vides et corrige les types."""
     df = df.dropna(subset=["CNE"]).copy()
 
-    num_cols = [c for c in FEATURE_COLS + [TARGET_COL, "Moyenne_S2"]
-                if c in df.columns]
-    for col in num_cols:
-        df[col] = pd.to_numeric(df[col], errors="coerce")
-
+    # ⚠️ Encoder Redoublant EN PREMIER (Oui/Non → 1/0) AVANT la conversion numérique
+    # Si on laisse pd.to_numeric convertir "Oui", ça donne NaN puis médiane = 0 pour tout le monde
     if "Redoublant" in df.columns:
         r = df["Redoublant"].astype(str).str.strip().str.lower()
         df["Redoublant"] = r.map(
-            {"oui": 1, "non": 0, "1": 1, "0": 0, "1.0": 1, "0.0": 0, "nan": 0}
+            {"oui": 1, "non": 0, "1": 1, "0": 0, "1.0": 1, "0.0": 0, "nan": 0, "true": 1, "false": 0}
         ).fillna(0).astype(int)
 
+    # Conversion numérique de toutes les autres colonnes (Redoublant déjà traité)
+    num_cols = [c for c in FEATURE_COLS + [TARGET_COL, "Moyenne_S2"]
+                if c in df.columns and c != "Redoublant"]
+    for col in num_cols:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+
     return df
+
 
 
 def handle_missing(df: pd.DataFrame) -> pd.DataFrame:
