@@ -110,29 +110,34 @@ st.markdown("""
     /* ── Score Badge ── */
     .score-badge { font-family: 'Poppins', sans-serif; font-size: 1.4rem; font-weight: 800; }
 
-    /* ── Statut Box ── */
+    /* ── Advanced Glowing Status Box ── */
     .statut-box {
-        border-radius: 22px; padding: 32px 24px; text-align: center;
-        color: white; box-shadow: 0 20px 40px rgba(0,0,0,0.35);
+        border-radius: 26px; padding: 40px 30px; text-align: center;
+        color: white; box-shadow: 0 20px 50px rgba(0,0,0,0.5);
         position: relative; overflow: hidden;
+        transition: transform 0.4s ease, box-shadow 0.4s ease;
     }
+    .statut-box:hover { transform: scale(1.02); }
     .statut-box::before {
-        content: ''; position: absolute; top:-40%; left:-40%;
-        width: 180%; height: 180%;
-        background: radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 70%);
+        content: ''; position: absolute; top:-50%; left:-50%; width: 200%; height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%);
+        animation: pulseGlow 4s infinite alternate;
     }
-    .statut-vert  { background: linear-gradient(135deg, #047857 0%, #10b981 100%); }
-    .statut-jaune { background: linear-gradient(135deg, #b45309 0%, #f59e0b 100%); }
-    .statut-rouge { background: linear-gradient(135deg, #9f1239 0%, #e11d48 100%); }
+    @keyframes pulseGlow { 0% { opacity: 0.5; transform: scale(0.95); } 100% { opacity: 1; transform: scale(1.05); } }
+    
+    .glow-vert  { background: linear-gradient(135deg, #059669 0%, #10b981 100%); border: 2px solid #34d399; box-shadow: 0 0 60px rgba(16,185,129,0.25); }
+    .glow-jaune { background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%); border: 2px solid #fbbf24; box-shadow: 0 0 60px rgba(245,158,11,0.25); }
+    .glow-rouge { background: linear-gradient(135deg, #be123c 0%, #e11d48 100%); border: 2px solid #fb7185; box-shadow: 0 0 60px rgba(225,29,72,0.25); }
 
-    /* ── Metric Highlight ── */
+    /* ── Metric Highlight Enhanced ── */
     .metric-highlight {
-        background: rgba(12, 20, 42, 0.7); border-radius: 18px; padding: 26px;
-        text-align: center; border: 1px solid rgba(255,255,255,0.05);
-        box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        background: rgba(15, 23, 42, 0.8); border-radius: 24px; padding: 32px 20px;
+        text-align: center; border: 1px solid rgba(255,255,255,0.08);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+        backdrop-filter: blur(12px);
+        transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
-    .metric-highlight:hover { transform: translateY(-6px); box-shadow: 0 16px 40px rgba(0,0,0,0.3); }
+    .metric-highlight:hover { transform: translateY(-8px); border-color: rgba(255,255,255,0.25); box-shadow: 0 20px 40px rgba(0,0,0,0.4); }
 
     /* ── KPI Mini Card (Sidebar) ── */
     .kpi-mini {
@@ -459,36 +464,46 @@ with tab3:
 
     if prediction_ok:
         statut    = res["statut_global"]
-        emoji_map = {"VERT": "✅ SUCCÈS", "JAUNE": "⚠️ À RISQUE", "ROUGE": "❌ ÉCHEC CRITIQUE"}
-        css_map   = {"VERT": "statut-vert", "JAUNE": "statut-jaune", "ROUGE": "statut-rouge"}
+        emoji_map = {"VERT": "✅", "JAUNE": "⚠️", "ROUGE": "❌"}
+        title_map = {"VERT": "VALIDATION ASSURÉE", "JAUNE": "RISQUE MODÉRÉ", "ROUGE": "ÉCHEC CRITIQUE"}
+        css_map   = {"VERT": "glow-vert", "JAUNE": "glow-jaune", "ROUGE": "glow-rouge"}
         desc_map  = {
-            "VERT":  "L'étudiant est sur la bonne voie pour valider sa 3ème année.",
-            "JAUNE": "Des modules nécessitent une attention particulière.",
-            "ROUGE": "Risque élevé d'échec — intervention recommandée.",
+            "VERT":  "L'étudiant est sur une excellente trajectoire pour valider sa 3ème année brillamment.",
+            "JAUNE": "Des modules nécessitent une attention particulière pour éviter un blocage de diplôme.",
+            "ROUGE": "Risque majeur — L'étudiant ne réunit pas les prérequis nécessaires pour obtenir son diplôme.",
         }
 
         # ── Résultat 1A vs 3A ────────────────────────────────────────────────
-        st.markdown('<div class="section-hdr">Bilan Comparatif : 1A Réel vs 3A Prédit</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-hdr">Bilan Comparatif : Passé vs Futur (Prédit)</div>', unsafe_allow_html=True)
         reussi_1a_bool = moy_ann_1A >= 12 and modules_nv_1A <= 3 and pfa_1A >= 12
-        txt_1a  = "✅ RÉUSSI (Admis)" if reussi_1a_bool else "❌ ÉCHEC (Rattrapage)"
+        txt_1a  = "✅ RÉUSSI (Admis)" if reussi_1a_bool else "❌ ÉCHEC (Rattrapage/Redoublement)"
         col_1a  = "#10b981" if reussi_1a_bool else "#ef4444"
 
-        c_left, c_right = st.columns(2)
+        c_left, empty, c_right = st.columns([1, 0.05, 1.4])
         with c_left:
             st.markdown(f"""
-            <div style="background:rgba(22,32,58,0.6); padding:24px; border-radius:18px;
-                        border-top:5px solid {col_1a}; text-align:center;">
-                <p style="margin:0; color:#94a3b8; font-size:0.85rem; font-family:'Poppins'; text-transform:uppercase; letter-spacing:2px;">Résultat 1ère Année (Réel)</p>
-                <h2 style="color:{col_1a}; margin:12px 0; font-family:'Poppins';">{txt_1a}</h2>
-                <p style="color:#94a3b8; margin:0; font-size:0.9rem;">Moy. annuelle : <b style="color:white;">{moy_ann_1A}/20</b> &nbsp;|&nbsp; Modules NV : <b style="color:white;">{int(modules_nv_1A)}</b></p>
+            <div style="background:rgba(22,32,58,0.4); padding:32px; border-radius:24px;
+                        border: 1px solid rgba(255,255,255,0.05); border-top:5px solid {col_1a}; 
+                        text-align:center; height:100%; display:flex; flex-direction:column; justify-content:center;">
+                <p style="margin:0; color:#94a3b8; font-size:0.85rem; font-family:'Poppins'; text-transform:uppercase; letter-spacing:2px;">Bilan 1ère Année (Réel)</p>
+                <h2 style="color:{col_1a}; margin:16px 0; font-family:'Poppins'; font-size:1.6rem;">{txt_1a}</h2>
+                <div style="background:rgba(0,0,0,0.2); padding:12px; border-radius:12px; display:inline-block; margin:0 auto;">
+                    <p style="color:#94a3b8; margin:0; font-size:0.95rem;">Moy. Annuelle : <b style="color:white; font-size:1.1rem;">{moy_ann_1A}/20</b> &nbsp;|&nbsp; NV : <b style="color:white; font-size:1.1rem;">{int(modules_nv_1A)}</b></p>
+                </div>
             </div>""", unsafe_allow_html=True)
 
         with c_right:
             st.markdown(f"""
             <div class="{css_map[statut]} statut-box">
-                <p style="margin:0; font-size:0.85rem; font-family:'Poppins'; text-transform:uppercase; letter-spacing:2px; opacity:0.85;">Prédiction 3ème Année (IA)</p>
-                <h2 style="margin:12px 0; font-family:'Poppins'; font-size:1.8rem;">{emoji_map[statut]}</h2>
-                <p style="margin:0; font-size:0.9rem; opacity:0.9;">{res['nb_valides']}/{res['nb_total']} modules validés · {desc_map[statut]}</p>
+                <p style="margin:0; font-size:0.9rem; font-family:'Poppins'; text-transform:uppercase; letter-spacing:3px; opacity:0.9; text-shadow:0 2px 4px rgba(0,0,0,0.3);">Prédiction PFA & Diapason IA</p>
+                <h2 style="margin:16px 0 8px 0; font-family:'Poppins'; font-size:2.2rem; font-weight:800; text-shadow:0 2px 10px rgba(0,0,0,0.4);">
+                    <span style="font-size:3rem; vertical-align:middle; margin-right:12px;">{emoji_map[statut]}</span> 
+                    {title_map[statut]}
+                </h2>
+                <div style="background:rgba(0,0,0,0.15); padding:8px 16px; border-radius:20px; display:inline-block; margin-bottom:14px; border:1px solid rgba(255,255,255,0.2);">
+                    <b style="font-size:1.1rem; letter-spacing:1px;">{res['nb_valides']}/{res['nb_total']} MODULES PRÉDITS VALIDÉS</b>
+                </div>
+                <p style="margin:0; font-size:0.98rem; opacity:0.95; line-height:1.5;">{desc_map[statut]}</p>
             </div>""", unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
@@ -504,24 +519,27 @@ with tab3:
         with col_n1:
             pct = int(res["note_s5_predite"] / 20 * 100)
             st.markdown(f"""<div class="metric-highlight">
-                <span style="font-size:0.85rem; color:#94a3b8; font-weight:600;">📊 Note S5 Estimée</span><br>
-                <b style="color:{s5_color}; font-size:2.6rem; font-family:'Poppins';">{res['note_s5_predite']:.1f}/20</b>
-                <div class="progress-bar-container"><div class="progress-bar-fill" style="width:{pct}%;background:{s5_color};"></div></div>
+                <div style="width:48px; height:48px; background:rgba(255,255,255,0.08); border-radius:12px; display:inline-flex; align-items:center; justify-content:center; font-size:1.5rem; margin-bottom:12px;">📊</div><br>
+                <span style="font-size:0.85rem; color:#94a3b8; font-family:'Poppins'; letter-spacing:1px; text-transform:uppercase;">Note S5 Estimée</span><br>
+                <b style="color:{s5_color}; font-size:3rem; font-family:'Poppins'; display:block; margin:8px 0; text-shadow:0 0 20px {s5_color}40;">{res['note_s5_predite']:.1f}<span style="font-size:1.2rem;color:#64748b;">/20</span></b>
+                <div class="progress-bar-container" style="height:6px;"><div class="progress-bar-fill" style="width:{pct}%;background:{s5_color}; box-shadow:0 0 10px {s5_color};"></div></div>
             </div>""", unsafe_allow_html=True)
 
         with col_n2:
             pct = int(res["note_pfe_predite"] / 20 * 100)
             st.markdown(f"""<div class="metric-highlight">
-                <span style="font-size:0.85rem; color:#94a3b8; font-weight:600;">🎓 Note PFE Estimée</span><br>
-                <b style="color:{pfe_color}; font-size:2.6rem; font-family:'Poppins';">{res['note_pfe_predite']:.1f}/20</b>
-                <div class="progress-bar-container"><div class="progress-bar-fill" style="width:{pct}%;background:{pfe_color};"></div></div>
+                <div style="width:48px; height:48px; background:rgba(255,255,255,0.08); border-radius:12px; display:inline-flex; align-items:center; justify-content:center; font-size:1.5rem; margin-bottom:12px;">🎓</div><br>
+                <span style="font-size:0.85rem; color:#94a3b8; font-family:'Poppins'; letter-spacing:1px; text-transform:uppercase;">Note PFE Estimée</span><br>
+                <b style="color:{pfe_color}; font-size:3rem; font-family:'Poppins'; display:block; margin:8px 0; text-shadow:0 0 20px {pfe_color}40;">{res['note_pfe_predite']:.1f}<span style="font-size:1.2rem;color:#64748b;">/20</span></b>
+                <div class="progress-bar-container" style="height:6px;"><div class="progress-bar-fill" style="width:{pct}%;background:{pfe_color}; box-shadow:0 0 10px {pfe_color};"></div></div>
             </div>""", unsafe_allow_html=True)
 
         with col_n3:
             st.markdown(f"""<div class="metric-highlight">
-                <span style="font-size:0.85rem; color:#94a3b8; font-weight:600;">🏅 Modules Validés</span><br>
-                <b style="color:{badge_col}; font-size:2.6rem; font-family:'Poppins';">{res['nb_valides']}/{res['nb_total']}</b>
-                <div class="progress-bar-container"><div class="progress-bar-fill" style="width:{pct_val}%;background:{badge_col};"></div></div>
+                <div style="width:48px; height:48px; background:rgba(255,255,255,0.08); border-radius:12px; display:inline-flex; align-items:center; justify-content:center; font-size:1.5rem; margin-bottom:12px;">🏅</div><br>
+                <span style="font-size:0.85rem; color:#94a3b8; font-family:'Poppins'; letter-spacing:1px; text-transform:uppercase;">Modules Validés</span><br>
+                <b style="color:{badge_col}; font-size:3rem; font-family:'Poppins'; display:block; margin:8px 0; text-shadow:0 0 20px {badge_col}40;">{res['nb_valides']}<span style="font-size:1.2rem;color:#64748b;">/{res['nb_total']}</span></b>
+                <div class="progress-bar-container" style="height:6px;"><div class="progress-bar-fill" style="width:{pct_val}%;background:{badge_col}; box-shadow:0 0 10px {badge_col};"></div></div>
             </div>""", unsafe_allow_html=True)
 
         st.markdown(f"<p style='text-align:center; color:#64748b; font-style:italic; margin-top:16px; font-size:0.9rem;'>{res['resume']}</p>", unsafe_allow_html=True)
@@ -538,30 +556,33 @@ with tab3:
                 with cols[col_idx]:
                     score = mod_res["score_prereq"]
                     if mod_res["valide"]:
-                        css_cls = "mod-valide";   icon = "✅"; color = "#10b981"
+                        css_cls = "mod-valide";   icon = "✅"; color = "#10b981"; bg_color = "rgba(16, 185, 129, 0.05)"
                     elif score >= 10:
-                        css_cls = "mod-marginal"; icon = "⚠️"; color = "#eab308"
+                        css_cls = "mod-marginal"; icon = "⚠️"; color = "#f59e0b"; bg_color = "rgba(245, 158, 11, 0.05)"
                     else:
-                        css_cls = "mod-invalide"; icon = "❌"; color = "#f43f5e"
+                        css_cls = "mod-invalide"; icon = "❌"; color = "#f43f5e"; bg_color = "rgba(244, 63, 94, 0.05)"
 
                     proba_pct  = round(mod_res["probabilite"] * 100, 0)
-                    status_txt = "VALIDÉ" if mod_res["valide"] else "NON VALIDÉ"
-                    score_pct  = int(score / 20 * 100)
+                    status_txt = "VALIDÉ" if mod_res["valide"] else "RATTRAPAGE" if score >= 10 else "NON VALIDÉ"
+                    score_pct  = int((score / 20) * 100)
 
                     st.markdown(f"""
-                    <div class="module-card {css_cls}">
-                        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <div class="module-card {css_cls}" style="background:{bg_color}; position:relative; overflow:hidden;">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
                             <div>
-                                <b style="color:white; font-size:1rem; font-family:'Poppins';">{icon} {mod_res['label_fr']}</b><br>
-                                <span style="color:#64748b; font-size:0.8rem;">{mod_res['raison']}</span>
+                                <b style="color:white; font-size:1.05rem; font-family:'Poppins'; letter-spacing:0.5px;">{icon} {mod_res['label_fr']}</b><br>
+                                <span style="color:#94a3b8; font-size:0.85rem;">{mod_res['raison']}</span>
                             </div>
                             <div style="text-align:right; min-width:90px;">
-                                <div class="score-badge" style="color:{color};">{score:.1f}/20</div>
-                                <span style="color:{color}; font-size:0.78rem; font-weight:700;">{proba_pct:.0f}% · {status_txt}</span>
+                                <div class="score-badge" style="color:{color}; text-shadow:0 0 10px {color}40;">{score:.1f}<span style="font-size:0.8rem; color:#64748b;">/20</span></div>
                             </div>
                         </div>
-                        <div class="progress-bar-container" style="margin-top:12px;">
-                            <div class="progress-bar-fill" style="width:{score_pct}%; background: linear-gradient(90deg, {color}88, {color});"></div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                            <span style="font-size:0.75rem; color:#64748b; text-transform:uppercase; letter-spacing:1px; font-weight:600;">Probabilité de réussite</span>
+                            <span style="color:{color}; font-size:0.85rem; font-weight:700; background:rgba(255,255,255,0.1); padding:2px 8px; border-radius:10px;">{proba_pct:.0f}% · {status_txt}</span>
+                        </div>
+                        <div class="progress-bar-container" style="height:6px; background:rgba(0,0,0,0.2);">
+                            <div class="progress-bar-fill" style="width:{score_pct}%; background: linear-gradient(90deg, {color}40, {color}); box-shadow:0 0 10px {color}80;"></div>
                         </div>
                     </div>""", unsafe_allow_html=True)
 
@@ -601,22 +622,38 @@ with tab3:
             abs_css = "danger-abs" if p1A["danger_abs"] else "safe-abs"
             red_css = "danger-abs" if p1A["danger_red"] else "safe-abs"
             st.markdown(f"""
-            <div class="profil-box">
-                <h4 style="margin:0 0 4px 0; font-family:'Poppins';">{pe} {pl}</h4>
-                <p style="color:#64748b; font-size:0.85rem; margin-bottom:14px;">Total absences 1A : <b style="color:#94a3b8;">{p1A['total_abs']:.0f}h</b></p>
-                <div class="{abs_css}">{'⚠️' if p1A['danger_abs'] else '✅'} Absences : {p1A['abs_s1']:.0f}h (S1) + {p1A['abs_s2']:.0f}h (S2)</div>
-                <div class="{red_css}">{'⚠️' if p1A['danger_red'] else '✅'} Redoublant : {'Oui' if redoublant_1A else 'Non'}</div>
+            <div style="background:rgba(15,23,42,0.8); border-radius:20px; padding:28px 24px; border:1px solid rgba(255,255,255,0.06); box-shadow:0 10px 30px rgba(0,0,0,0.3); backdrop-filter:blur(10px);">
+                <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+                    <div style="font-size:2rem; background:rgba(255,255,255,0.05); width:54px; height:54px; display:flex; align-items:center; justify-content:center; border-radius:14px;">{pe}</div>
+                    <div>
+                        <h4 style="margin:0; font-family:'Poppins'; font-size:1.3rem; color:white;">{pl}</h4>
+                        <span style="color:#94a3b8; font-size:0.85rem; text-transform:uppercase; letter-spacing:1px;">Profil Comportemental</span>
+                    </div>
+                </div>
+                
+                <div style="background:rgba(0,0,0,0.2); border-radius:12px; padding:12px 16px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+                    <span style="color:#64748b; font-size:0.9rem;">Total absences (S1+S2)</span>
+                    <b style="color:white; font-size:1rem; font-family:'Poppins';">{p1A['total_abs']:.0f}h</b>
+                </div>
+                
+                <div style="padding:10px 14px; border-radius:10px; margin-bottom:8px; border-left:4px solid {'#f43f5e' if p1A['danger_abs'] else '#10b981'}; background:rgba(255,255,255,0.03);">
+                    <span style="color:white; font-size:0.9rem;">{'⚠️' if p1A['danger_abs'] else '✅'} Absences <span style="color:#94a3b8;">({p1A['abs_s1']:.0f}h S1 + {p1A['abs_s2']:.0f}h S2)</span></span>
+                </div>
+                
+                <div style="padding:10px 14px; border-radius:10px; border-left:4px solid {'#f43f5e' if p1A['danger_red'] else '#10b981'}; background:rgba(255,255,255,0.03);">
+                    <span style="color:white; font-size:0.9rem;">{'⚠️' if p1A['danger_red'] else '✅'} Redoublant <span style="color:#94a3b8;">({'Oui' if redoublant_1A else 'Non'})</span></span>
+                </div>
             </div>""", unsafe_allow_html=True)
 
             if res["facteurs_risque_3A"]:
-                st.markdown("<br><b style='color:#fda4af;'>⚠️ Facteurs de Risque</b>", unsafe_allow_html=True)
+                st.markdown("<br><b style='color:#fda4af; font-family:\"Poppins\"; font-size:1.1rem;'>⚠️ Facteurs de Risque Moteurs</b>", unsafe_allow_html=True)
                 for f in res["facteurs_risque_3A"]:
-                    st.markdown(f'<div class="risk-item">{f}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div style="background:linear-gradient(90deg, rgba(244,63,94,0.15), rgba(244,63,94,0.02)); border-left:4px solid #f43f5e; padding:12px 16px; border-radius:10px; margin:8px 0; color:#e2e8f0; font-size:0.9rem;">{f}</div>', unsafe_allow_html=True)
 
             if res["recommandations_3A"]:
-                st.markdown("<br><b style='color:#a7f3d0;'>💡 Recommandations</b>", unsafe_allow_html=True)
+                st.markdown("<br><b style='color:#a7f3d0; font-family:\"Poppins\"; font-size:1.1rem;'>💡 Plan d\'Action Recommandé</b>", unsafe_allow_html=True)
                 for r in res["recommandations_3A"]:
-                    st.markdown(f'<div class="rec-item">{r}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div style="background:linear-gradient(90deg, rgba(16,185,129,0.15), rgba(16,185,129,0.02)); border-left:4px solid #10b981; padding:12px 16px; border-radius:10px; margin:8px 0; color:#e2e8f0; font-size:0.9rem;">{r}</div>', unsafe_allow_html=True)
 
 # ─── FOOTER ────────────────────────────────────────────────────────────────────
 st.markdown("<br>", unsafe_allow_html=True)
