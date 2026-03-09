@@ -614,46 +614,86 @@ with tab3:
             st.pyplot(fig)
             plt.close(fig)
 
-        with cl_p:
-            st.markdown('<div class="section-hdr">Profil Comportemental</div>', unsafe_allow_html=True)
-            p1A     = res["profil_1A"]
-            pe      = PROFIL_EMOJI[p1A["score"]]
-            pl      = PROFIL_LABELS[p1A["score"]]
-            abs_css = "danger-abs" if p1A["danger_abs"] else "safe-abs"
-            red_css = "danger-abs" if p1A["danger_red"] else "safe-abs"
-            st.markdown(f"""
-<div style="background:rgba(15,23,42,0.8); border-radius:20px; padding:28px 24px; border:1px solid rgba(255,255,255,0.06); box-shadow:0 10px 30px rgba(0,0,0,0.3); backdrop-filter:blur(10px);">
-    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
-        <div style="font-size:2rem; background:rgba(255,255,255,0.05); width:54px; height:54px; display:flex; align-items:center; justify-content:center; border-radius:14px;">{pe}</div>
-        <div>
-            <h4 style="margin:0; font-family:'Poppins'; font-size:1.3rem; color:white;">{pl}</h4>
-            <span style="color:#94a3b8; font-size:0.85rem; text-transform:uppercase; letter-spacing:1px;">Profil Comportemental</span>
-        </div>
-    </div>
-    
-    <div style="background:rgba(0,0,0,0.2); border-radius:12px; padding:12px 16px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
-        <span style="color:#64748b; font-size:0.9rem;">Total absences (S1+S2)</span>
-        <b style="color:white; font-size:1rem; font-family:'Poppins';">{p1A['total_abs']:.0f}h</b>
-    </div>
-    
-    <div style="padding:10px 14px; border-radius:10px; margin-bottom:8px; border-left:4px solid {'#f43f5e' if p1A['danger_abs'] else '#10b981'}; background:rgba(255,255,255,0.03);">
-        <span style="color:white; font-size:0.9rem;">{'⚠️' if p1A['danger_abs'] else '✅'} Absences <span style="color:#94a3b8;">({p1A['abs_s1']:.0f}h S1 + {p1A['abs_s2']:.0f}h S2)</span></span>
-    </div>
-    
-    <div style="padding:10px 14px; border-radius:10px; border-left:4px solid {'#f43f5e' if p1A['danger_red'] else '#10b981'}; background:rgba(255,255,255,0.03);">
-        <span style="color:white; font-size:0.9rem;">{'⚠️' if p1A['danger_red'] else '✅'} Redoublant <span style="color:#94a3b8;">({'Oui' if redoublant_1A else 'Non'})</span></span>
-    </div>
-</div>""", unsafe_allow_html=True)
+            st.markdown('<div class="section-hdr">Bilan Personnel & Plan d\'Action</div>', unsafe_allow_html=True)
 
-            if res["facteurs_risque_3A"]:
-                st.markdown("<br><b style='color:#fda4af; font-family:\"Poppins\"; font-size:1.1rem;'>⚠️ Facteurs de Risque Moteurs</b>", unsafe_allow_html=True)
-                for f in res["facteurs_risque_3A"]:
-                    st.markdown(f'<div style="background:linear-gradient(90deg, rgba(244,63,94,0.15), rgba(244,63,94,0.02)); border-left:4px solid #f43f5e; padding:12px 16px; border-radius:10px; margin:8px 0; color:#e2e8f0; font-size:0.9rem;">{f}</div>', unsafe_allow_html=True)
+            if statut == "VERT":
+                # Message de motivation pour les bons étudiants
+                st.markdown(f"""
+                <div style="background:linear-gradient(135deg, rgba(16,185,129,0.1) 0%, rgba(16,185,129,0.02) 100%); 
+                            border-radius:20px; padding:32px; border:1px solid rgba(16,185,129,0.2); 
+                            box-shadow:0 10px 30px rgba(0,0,0,0.2); margin-bottom:20px;">
+                    <h3 style="color:#10b981; font-family:'Poppins'; margin-top:0; font-size:1.6rem;">🌟 Parcours d'Excellence</h3>
+                    <p style="color:#e2e8f0; font-size:1.05rem; line-height:1.6; margin-bottom:20px;">
+                        Félicitations ! Vos bases académiques sont extrêmement solides. Avec ce rythme, la validation 
+                        de votre 3ème année (diplôme) est quasiment assurée. Vous avez une marge de manœuvre suffisante 
+                        pour viser une mention d'excellence.
+                    </p>
+                    <div style="background:rgba(255,255,255,0.05); border-radius:12px; padding:16px;">
+                        <b style="color:#a7f3d0; font-size:1.1rem; display:block; margin-bottom:10px;">💡 Conseils pour aller plus loin :</b>
+                        <ul style="color:#cbd5e1; margin:0; padding-left:20px; font-size:0.95rem; line-height:1.5;">
+                            <li style="margin-bottom:6px;">Commencez dès maintenant à chercher un stage de fin d'études (PFE) stimulant et techniquement challengeant.</li>
+                            <li style="margin-bottom:6px;">Impliquez-vous dans des projets parascolaires ou des compétitions pour étoffer votre CV.</li>
+                            <li>Explorez les thématiques avancées de votre filière pour anticiper le marché de l'emploi.</li>
+                        </ul>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                # Messages d'alerte et de coaching pour les étudiants à risque
+                color_theme  = "#f43f5e" if statut == "ROUGE" else "#f59e0b"
+                bg_theme     = "rgba(244,63,94,0.1)" if statut == "ROUGE" else "rgba(245,158,11,0.1)"
+                border_theme = "rgba(244,63,94,0.3)" if statut == "ROUGE" else "rgba(245,158,11,0.3)"
+                titre        = "🚨 Alerte Académique Majeure" if statut == "ROUGE" else "⚠️ Points de Vigilance"
 
-            if res["recommandations_3A"]:
-                st.markdown("<br><b style='color:#a7f3d0; font-family:\"Poppins\"; font-size:1.1rem;'>💡 Plan d\'Action Recommandé</b>", unsafe_allow_html=True)
-                for r in res["recommandations_3A"]:
-                    st.markdown(f'<div style="background:linear-gradient(90deg, rgba(16,185,129,0.15), rgba(16,185,129,0.02)); border-left:4px solid #10b981; padding:12px 16px; border-radius:10px; margin:8px 0; color:#e2e8f0; font-size:0.9rem;">{r}</div>', unsafe_allow_html=True)
+                # Compilation des alertes personnalisées
+                alertes_html = ""
+                # 1. Absences
+                if p1A["danger_abs"]:
+                    alertes_html += f"""
+                    <div style="background:rgba(255,255,255,0.03); border-left:4px solid #f43f5e; padding:12px 16px; border-radius:10px; margin-bottom:10px;">
+                        <b style="color:#fda4af; display:block; margin-bottom:4px;">⏱️ Assiduité Critique ({p1A['total_abs']:.0f}h d'absence)</b>
+                        <span style="color:#cbd5e1; font-size:0.9rem;">L'absentéisme est le premier facteur d'échec statitisque en 3A. Il est impératif de réduire vos absences à zéro.</span>
+                    </div>"""
+                # 2. Redoublant
+                if p1A["danger_red"]:
+                     alertes_html += f"""
+                    <div style="background:rgba(255,255,255,0.03); border-left:4px solid #f59e0b; padding:12px 16px; border-radius:10px; margin-bottom:10px;">
+                        <b style="color:#fcd34d; display:block; margin-bottom:4px;">🔄 Historique de Redoublement</b>
+                        <span style="color:#cbd5e1; font-size:0.9rem;">Votre statut de redoublant montre des fragilités antérieures. Un suivi rigoureux dès les premières semaines est crucial.</span>
+                    </div>"""
+                # 3. Modules fail
+                if res["facteurs_risque_3A"] and len(res["modules_non_valides_liste"]) > 0:
+                    mods = ", ".join(res["modules_non_valides_liste"])
+                    alertes_html += f"""
+                    <div style="background:rgba(255,255,255,0.03); border-left:4px solid {color_theme}; padding:12px 16px; border-radius:10px; margin-bottom:10px;">
+                        <b style="color:{color_theme}; display:block; margin-bottom:4px;">📚 Lacunes Prérequis Identifiées</b>
+                        <span style="color:#cbd5e1; font-size:0.9rem;">Vous risquez de bloquer sur les modules suivants : <b>{mods}</b>.</span>
+                    </div>"""
+
+                st.markdown(f"""
+                <div style="background:linear-gradient(135deg, {bg_theme} 0%, rgba(0,0,0,0.2) 100%); 
+                            border-radius:20px; padding:32px; border:1px solid {border_theme}; 
+                            box-shadow:0 10px 30px rgba(0,0,0,0.2); margin-bottom:20px;">
+                    <h3 style="color:{color_theme}; font-family:'Poppins'; margin-top:0; font-size:1.6rem;">{titre}</h3>
+                    
+                    <div style="margin-bottom:24px;">
+                        <p style="color:#e2e8f0; font-size:1rem; margin-bottom:16px;">
+                            L'Intelligence Artificielle a détecté des blocages majeurs qui pourraient compromettre l'obtention de votre diplôme. 
+                            Agissez dès maintenant sur ces points :
+                        </p>
+                        {alertes_html}
+                    </div>
+
+                    <div style="background:rgba(0,0,0,0.3); border-radius:12px; padding:16px; border-top:2px solid {color_theme};">
+                        <b style="color:#e2e8f0; font-size:1.05rem; display:block; margin-bottom:12px;">🛠️ Plan d'Action Recommandé :</b>
+                        <ul style="color:#cbd5e1; margin:0; padding-left:20px; font-size:0.95rem; line-height:1.6;">
+                            <li style="margin-bottom:6px;"><b>Révision intensive:</b> Reprenez les cours des modules 1A/2A qui bloquent en 3A.</li>
+                            <li style="margin-bottom:6px;"><b>Tutorat:</b> Demandez de l'aide à vos enseignants ou camarades sur les concepts fondamentaux non acquis.</li>
+                            <li><b>Assiduité stricte:</b> Ne manquez aucune séance de TD/TP cette année.</li>
+                        </ul>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
 
 # ─── FOOTER ────────────────────────────────────────────────────────────────────
 st.markdown("<br>", unsafe_allow_html=True)
