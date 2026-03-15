@@ -11,29 +11,31 @@ export const AuthProvider = ({ children }) => {
     const token = localStorage.getItem("token");
     const savedUser = localStorage.getItem("user");
     if (token && savedUser) {
-      api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
       setUser(JSON.parse(savedUser));
     }
     setLoading(false);
   }, []);
 
   const login = async (email, password) => {
-  // Login de test — à remplacer quand le backend est prêt
-  if (email && password) {
-    const fakeUser = { name: "Administrateur", email };
-    localStorage.setItem("token", "test-token");
-    localStorage.setItem("user", JSON.stringify(fakeUser));
-    api.defaults.headers.common["Authorization"] = `Bearer test-token`;
-    setUser(fakeUser);
-    return fakeUser;
-  }
-  throw new Error("Champs vides");
+  const res = await api.post("/auth/login", {
+    email: email,
+    password: password,
+  });
+
+  const token = res.data.access_token;
+
+  localStorage.setItem("token", token);
+
+  const userData = { email };
+  localStorage.setItem("user", JSON.stringify(userData));
+  setUser(userData);
+
+  return userData;
 };
 
   const logout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-    delete api.defaults.headers.common["Authorization"];
     setUser(null);
   };
 
