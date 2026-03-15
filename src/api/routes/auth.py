@@ -41,5 +41,5 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == data.email).first()
     if not user or not pwd_context.verify(data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect")
-    token = create_access_token({"sub": user.email, "role": user.role})
+    token = create_access_token({"sub": user.email, "role": user.role.value})
     return {"access_token": token, "token_type": "bearer"} 

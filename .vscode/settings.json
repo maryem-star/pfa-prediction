@@ -1,0 +1,21 @@
+{
+    "python.defaultInterpreterPath": "C:\\Users\\dell\\anaconda3\\python.exe",
+    "python.pythonPath": "C:\\Users\\dell\\anaconda3\\python.exe",
+    "python.analysis.extraPaths": [
+        "C:\\Users\\dell\\anaconda3\\Lib\\site-packages",
+        "C:\\Users\\dell\\Desktop\\pfa-projet\\pfa-student-prediction"
+    ],
+    "python.analysis.typeCheckingMode": "off",
+    "python.analysis.diagnosticMode": "openFilesOnly",
+    "python.analysis.ignore": [
+        "**"
+    ],
+    "pylint.enabled": false,
+    "python.linting.enabled": false,
+    "python.analysis.autoImportCompletions": true,
+    "pyrefly.disableLsp": true,
+    "pyrefly.enabled": false,
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.python"
+    }
+}

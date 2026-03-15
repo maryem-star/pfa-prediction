@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime
 from sqlalchemy.orm import relationship
 from src.utils.database import Base
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class Student(Base):
@@ -15,7 +15,7 @@ class Student(Base):
     annee = Column(String(10))
     semestre = Column(String(10))
     photo_url = Column(String(255), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     grades = relationship("Grade", back_populates="student")
     predictions = relationship("Prediction", back_populates="student")

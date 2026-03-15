@@ -1,8 +1,8 @@
- 
+
 from sqlalchemy import Column, Integer, Float, String, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from src.utils.database import Base
-from datetime import datetime
+from datetime import datetime, timezone
 
 class Prediction(Base):
     __tablename__ = "predictions"
@@ -13,6 +13,6 @@ class Prediction(Base):
     probabilite_reussite = Column(Float)   # ex: 0.87
     statut_couleur = Column(String(20))        # VERT, JAUNE, ROUGE
     note_predite = Column(Float, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     student = relationship("Student", back_populates="predictions")
