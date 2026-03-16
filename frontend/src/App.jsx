@@ -7,6 +7,8 @@ import StudentsPage from "./pages/StudentsPage";
 import PredictionPage from "./pages/PredictionPage";
 import StudentProfilePage from "./pages/StudentProfilePage";
 import BatchPredictionPage from "./pages/BatchPredictionPage";
+import AnalysisPage from "./pages/AnalysisPage";
+import ModelsPage from "./pages/ModelsPage";
 
 function App() {
   return (
@@ -19,6 +21,8 @@ function App() {
           <Route path="/students/:id" element={<ProtectedRoute><StudentProfilePage /></ProtectedRoute>} />
           <Route path="/prediction" element={<ProtectedRoute><PredictionPage /></ProtectedRoute>} />
           <Route path="/batch" element={<ProtectedRoute><BatchPredictionPage /></ProtectedRoute>} />
+          <Route path="/analysis" element={<ProtectedRoute><AnalysisPage /></ProtectedRoute>} />
+          <Route path="/models" element={<ProtectedRoute><ModelsPage /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </AuthProvider>
