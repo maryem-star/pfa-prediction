@@ -72,6 +72,7 @@ FEATURE_COLS = [
     "Danger_Absences",
     "Danger_Redoublant",
     "Score_Danger",
+    "Profil_Comportement",
 ]
 
 TARGET_COL = "Moyenne_Annuelle"
@@ -351,15 +352,28 @@ def create_target_binary(df: pd.DataFrame) -> pd.DataFrame:
     df["Danger_Redoublant"] = df.get("Redoublant", 0).astype(int)
 
     # Score de risque (0 à 3)
+    total_abs_series = abs_s1 + abs_s2
     df["Score_Danger"] = (
         df["Danger_Absences"] +
         df["Danger_Redoublant"] +
         (df.get("Ratio_NV", 0) > 0.5).astype(int)
     )
 
-    # Profil comportemental (catégoriel)
-    def_profil = lambda r: "Critique" if r["Score_Danger"] >= 2 else ("Alerte" if r["Score_Danger"] == 1 else "Stable")
-    df["Profil_Comportement"] = df.apply(def_profil, axis=1)
+    # Profil comportemental — numérique (0-3) pour le ML
+    # 0 = Très assidu (total ≤ 5h)
+    # 1 = Assidu (6-15h)
+    # 2 = Préoccupant (16-30h)
+    # 3 = Absentéiste chronique (> 30h)
+    def _score_profil(total):
+        if total <= 5:   return 0
+        if total <= 15:  return 1
+        if total <= 30:  return 2
+        return 3
+    df["Profil_Comportement"] = total_abs_series.apply(_score_profil)
+
+    # Label lisible (pour affichage uniquement, pas pour ML)
+    _profil_labels = {0: "Stable", 1: "Alerte", 2: "Critique", 3: "Critique"}
+    df["Profil_Comportement_Label"] = df["Profil_Comportement"].map(_profil_labels)
 
     # FEATURES_FINAL = toutes les variables utiles pour l'entraînement + l'ID/Nom
     FEATURES_FINAL = list(FEATURE_COLS) + [
