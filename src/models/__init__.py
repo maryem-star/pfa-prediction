@@ -4,3 +4,4 @@ from src.models.grade import Grade
 from src.models.prediction import Prediction
 from src.models.intervention import Intervention
 from src.models.notification import Notification
+from src.models.recommendation import Recommendation
