@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Enum, DateTime
 from src.utils.database import Base
-from datetime import datetime
+from datetime import datetime, timezone
 import enum
 
 class RoleEnum(str, enum.Enum):
@@ -38,7 +38,12 @@ class User(Base):
     prenom          = Column(String(100), nullable=False)
     email           = Column(String(150), unique=True, index=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
+<<<<<<< HEAD
     role            = Column(Enum(RoleEnum), default=RoleEnum.etudiant)
     filiere         = Column(String(20), nullable=True)
     student_id      = Column(Integer, nullable=True)
     created_at      = Column(DateTime, default=datetime.utcnow)
+=======
+    role = Column(Enum(RoleEnum), default=RoleEnum.enseignant)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+>>>>>>> 30e395c076fc145b0980a67c586433bd16503397

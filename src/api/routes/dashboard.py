@@ -16,5 +16,20 @@ def get_stats(db: Session = Depends(get_db), current_user=Depends(get_current_us
         par_filiere[filiere] = db.query(Student).filter(Student.filiere == filiere).count()
     total_interventions = db.query(Intervention).count()
     interventions_ouvertes = db.query(Intervention).filter(Intervention.statut == "ouvert").count()
+<<<<<<< HEAD
     notifications_non_lues = db.query(Notification).filter(Notification.user_id == current_user.id, Notification.lu == False).count()
     return {"total_etudiants": total_etudiants, "par_filiere": par_filiere, "total_interventions": total_interventions, "interventions_ouvertes": interventions_ouvertes, "notifications_non_lues": notifications_non_lues}
+=======
+    notifications_non_lues = db.query(Notification).filter(
+        Notification.user_id == current_user.id,
+        Notification.lu.is_(False)
+    ).count()
+
+    return {
+        "total_etudiants": total_etudiants,
+        "par_filiere": par_filiere,
+        "total_interventions": total_interventions,
+        "interventions_ouvertes": interventions_ouvertes,
+        "notifications_non_lues": notifications_non_lues
+    }
+>>>>>>> 30e395c076fc145b0980a67c586433bd16503397

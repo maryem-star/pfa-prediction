@@ -1,12 +1,51 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+<<<<<<< HEAD
 from src.api.routes import (
     auth, students, grades, notifications,
     interventions, import_csv, dashboard, predictions
 )
 from src.routers import students as students_v2, recommendations
+=======
+from src.api.routes import auth, students, grades, notifications, interventions, import_csv, dashboard, predictions
+from src.utils.database import engine, Base, SessionLocal
+from src.models import user as user_model, student, grade, prediction as pred_model, notification, intervention
+>>>>>>> 30e395c076fc145b0980a67c586433bd16503397
 
-app = FastAPI(title="PFA Student Prediction API")
+
+def init_db():
+    """Crée toutes les tables et l'utilisateur admin au démarrage."""
+    Base.metadata.create_all(bind=engine)
+    db = SessionLocal()
+    try:
+        from src.models.user import User, RoleEnum
+        from passlib.context import CryptContext
+        existing = db.query(User).filter(User.email == "admin@pfa.com").first()
+        if not existing:
+            pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
+            admin = User(
+                nom="Admin", prenom="PFA",
+                email="admin@pfa.com",
+                hashed_password=pwd.hash("admin123"),
+                role=RoleEnum.admin
+            )
+            db.add(admin)
+            db.commit()
+            print("[STARTUP] Admin user created: admin@pfa.com / admin123")
+        else:
+            print("[STARTUP] Admin user already exists.")
+    finally:
+        db.close()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
+
+
+app = FastAPI(title="PFA Student Prediction API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

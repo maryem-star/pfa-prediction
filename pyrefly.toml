@@ -1,0 +1,18 @@
+# Configuration Pyrefly — Désactivation complète des erreurs d'imports
+# Les packages sont installés dans Anaconda (C:\Users\dell\anaconda3)
+# Pyrefly ne sait pas résoudre ce chemin automatiquement
+
+[python]
+python_interpreter = "C:\\Users\\dell\\anaconda3\\python.exe"
+site_package_path = [
+    "C:\\Users\\dell\\anaconda3\\Lib\\site-packages"
+]
+search_path = [
+    "C:\\Users\\dell\\Desktop\\pfa-projet\\pfa-student-prediction"
+]
+
+[errors]
+# Désactiver toutes les vérifications
+missing_import = false
+missing_module_source = false
+undefined_variable = false
