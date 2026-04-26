@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -6,89 +6,96 @@ import {
   PolarGrid, PolarAngleAxis, Legend
 } from "recharts";
 import Layout from "../components/Layout";
+import { getModelMetrics } from "../services/predictionService";
 
-// ── Mock ML metrics data ──────────────────────────────────────────────────────
-const MODELS = [
-  {
-    id: "RandomForest",
-    label: "Random Forest",
-    color: "#1e56a0",
-    bg: "#eff6ff",
-    border: "#bfdbfe",
-    accuracy: 0.874,
-    precision: 0.861,
-    recall: 0.883,
-    f1: 0.872,
-    auc: 0.921,
-    training_time: "2.3s",
-    description: "Ensemble d'arbres de décision — robuste aux données bruitées",
-  },
-  {
-    id: "SVM",
-    label: "SVM",
-    color: "#7c3aed",
-    bg: "#f5f3ff",
-    border: "#ddd6fe",
-    accuracy: 0.851,
-    precision: 0.843,
-    recall: 0.862,
-    f1: 0.852,
-    auc: 0.903,
-    training_time: "1.8s",
-    description: "Support Vector Machine — efficace pour les petits datasets",
-  },
-  {
-    id: "LogisticRegression",
-    label: "Régression Logistique",
-    color: "#059669",
-    bg: "#ecfdf5",
-    border: "#a7f3d0",
-    accuracy: 0.823,
-    precision: 0.815,
-    recall: 0.831,
-    f1: 0.823,
-    auc: 0.879,
-    training_time: "0.4s",
-    description: "Modèle linéaire — rapide et interprétable",
-  },
-];
-
-// ── ROC curve mock data ───────────────────────────────────────────────────────
-const rocData = Array.from({ length: 11 }, (_, i) => {
-  const fpr = i / 10;
-  return {
-    fpr: parseFloat(fpr.toFixed(1)),
-    rf:  parseFloat(Math.min(1, fpr + 0.15 + (1 - fpr) * 0.72).toFixed(3)),
-    svm: parseFloat(Math.min(1, fpr + 0.12 + (1 - fpr) * 0.68).toFixed(3)),
-    lr:  parseFloat(Math.min(1, fpr + 0.09 + (1 - fpr) * 0.62).toFixed(3)),
-    random: fpr,
-  };
-});
-
-// ── Confusion matrix mock ─────────────────────────────────────────────────────
-const confusionMatrices = {
-  RandomForest:       { tp: 74, fp: 12, fn: 10, tn: 84 },
-  SVM:                { tp: 71, fp: 14, fn: 13, tn: 82 },
-  LogisticRegression: { tp: 68, fp: 16, fn: 16, tn: 80 },
+// ── Config des modèles (style) ────────────────────────────────────────────────
+const MODEL_CONFIG = {
+  RandomForest:       { label: "Random Forest",        color: "#1e56a0", bg: "#eff6ff", border: "#bfdbfe", description: "Ensemble d'arbres de décision — robuste aux données bruitées" },
+  SVM:                { label: "SVM",                   color: "#7c3aed", bg: "#f5f3ff", border: "#ddd6fe", description: "Support Vector Machine — efficace pour les petits datasets" },
+  LogisticRegression: { label: "Régression Logistique", color: "#059669", bg: "#ecfdf5", border: "#a7f3d0", description: "Modèle linéaire — rapide et interprétable" },
 };
 
-// ── Radar comparison data ─────────────────────────────────────────────────────
-const radarData = [
-  { metric: "Accuracy",  rf: 87.4, svm: 85.1, lr: 82.3 },
-  { metric: "Precision", rf: 86.1, svm: 84.3, lr: 81.5 },
-  { metric: "Recall",    rf: 88.3, svm: 86.2, lr: 83.1 },
-  { metric: "F1-Score",  rf: 87.2, svm: 85.2, lr: 82.3 },
-  { metric: "AUC-ROC",   rf: 92.1, svm: 90.3, lr: 87.9 },
+// ── Fallback mock data (si l'API n'est pas disponible) ────────────────────────
+const FALLBACK_MODELS = [
+  { id: "RandomForest",       ...MODEL_CONFIG.RandomForest,       accuracy: 0.874, precision: 0.861, recall: 0.883, f1: 0.872, auc: 0.921, training_time: "—" },
+  { id: "SVM",                ...MODEL_CONFIG.SVM,                accuracy: 0.851, precision: 0.843, recall: 0.862, f1: 0.852, auc: 0.903, training_time: "—" },
+  { id: "LogisticRegression", ...MODEL_CONFIG.LogisticRegression, accuracy: 0.823, precision: 0.815, recall: 0.831, f1: 0.823, auc: 0.879, training_time: "—" },
 ];
 
-// ── Bar comparison ────────────────────────────────────────────────────────────
-const metricsBar = [
-  { metric: "Accuracy",  RandomForest: 87.4, SVM: 85.1, LogisticRegression: 82.3 },
-  { metric: "Precision", RandomForest: 86.1, SVM: 84.3, LogisticRegression: 81.5 },
-  { metric: "Recall",    RandomForest: 88.3, SVM: 86.2, LogisticRegression: 83.1 },
-  { metric: "F1-Score",  RandomForest: 87.2, SVM: 85.2, LogisticRegression: 82.3 },
-  { metric: "AUC-ROC",   RandomForest: 92.1, SVM: 90.3, LogisticRegression: 87.9 },
-];
+function buildModelsFromAPI(apiMetrics) {
+  // apiMetrics peut être un objet {RandomForest: {...}} ou un tableau [{name: "RandomForest", ...}]
+  const metricsMap = {};
+  if (Array.isArray(apiMetrics)) {
+    apiMetrics.forEach((m) => { metricsMap[m.name || m.id] = m; });
+  } else {
+    Object.assign(metricsMap, apiMetrics);
+  }
+
+  return Object.entries(MODEL_CONFIG).map(([id, cfg]) => {
+    const m = metricsMap[id] || {};
+    return {
+      id,
+      ...cfg,
+      accuracy:  m.accuracy  ?? m.Accuracy  ?? 0,
+      precision: m.precision ?? m.Precision ?? 0,
+      recall:    m.recall    ?? m.Recall    ?? 0,
+      f1:        m.f1        ?? m["f1-score"] ?? m["F1-Score"] ?? m.f1_score ?? 0,
+      auc:       m.auc       ?? m.roc_auc   ?? m["ROC-AUC"]   ?? m.auc_roc  ?? 0,
+      training_time: m.training_time || "—",
+    };
+  });
+}
+
+function buildBarData(models) {
+  return [
+    { metric: "Accuracy",  RandomForest: +(models[0]?.accuracy  * 100).toFixed(1), SVM: +(models[1]?.accuracy  * 100).toFixed(1), LogisticRegression: +(models[2]?.accuracy  * 100).toFixed(1) },
+    { metric: "Precision", RandomForest: +(models[0]?.precision * 100).toFixed(1), SVM: +(models[1]?.precision * 100).toFixed(1), LogisticRegression: +(models[2]?.precision * 100).toFixed(1) },
+    { metric: "Recall",    RandomForest: +(models[0]?.recall    * 100).toFixed(1), SVM: +(models[1]?.recall    * 100).toFixed(1), LogisticRegression: +(models[2]?.recall    * 100).toFixed(1) },
+    { metric: "F1-Score",  RandomForest: +(models[0]?.f1        * 100).toFixed(1), SVM: +(models[1]?.f1        * 100).toFixed(1), LogisticRegression: +(models[2]?.f1        * 100).toFixed(1) },
+    { metric: "AUC-ROC",   RandomForest: +(models[0]?.auc       * 100).toFixed(1), SVM: +(models[1]?.auc       * 100).toFixed(1), LogisticRegression: +(models[2]?.auc       * 100).toFixed(1) },
+  ];
+}
+
+function buildRadarData(models) {
+  return [
+    { metric: "Accuracy",  rf: +(models[0]?.accuracy  * 100).toFixed(1), svm: +(models[1]?.accuracy  * 100).toFixed(1), lr: +(models[2]?.accuracy  * 100).toFixed(1) },
+    { metric: "Precision", rf: +(models[0]?.precision * 100).toFixed(1), svm: +(models[1]?.precision * 100).toFixed(1), lr: +(models[2]?.precision * 100).toFixed(1) },
+    { metric: "Recall",    rf: +(models[0]?.recall    * 100).toFixed(1), svm: +(models[1]?.recall    * 100).toFixed(1), lr: +(models[2]?.recall    * 100).toFixed(1) },
+    { metric: "F1-Score",  rf: +(models[0]?.f1        * 100).toFixed(1), svm: +(models[1]?.f1        * 100).toFixed(1), lr: +(models[2]?.f1        * 100).toFixed(1) },
+    { metric: "AUC-ROC",   rf: +(models[0]?.auc       * 100).toFixed(1), svm: +(models[1]?.auc       * 100).toFixed(1), lr: +(models[2]?.auc       * 100).toFixed(1) },
+  ];
+}
+
+// ── ROC curve data (approximation basée sur AUC) ──────────────────────────────
+function buildRocData(models) {
+  return Array.from({ length: 11 }, (_, i) => {
+    const fpr = i / 10;
+    const rfAuc  = models[0]?.auc || 0.92;
+    const svmAuc = models[1]?.auc || 0.90;
+    const lrAuc  = models[2]?.auc || 0.88;
+    return {
+      fpr: parseFloat(fpr.toFixed(1)),
+      rf:  parseFloat(Math.min(1, fpr + (1 - fpr) * rfAuc).toFixed(3)),
+      svm: parseFloat(Math.min(1, fpr + (1 - fpr) * svmAuc).toFixed(3)),
+      lr:  parseFloat(Math.min(1, fpr + (1 - fpr) * lrAuc).toFixed(3)),
+      random: fpr,
+    };
+  });
+}
+
+// ── Confusion matrix (estimation basée sur accuracy) ──────────────────────────
+function buildConfusionMatrices(models) {
+  const matrices = {};
+  for (const m of models) {
+    const total = 180;
+    const tp = Math.round(total * 0.5 * (m.recall || 0.85));
+    const fn = Math.round(total * 0.5) - tp;
+    const tn = Math.round(total * 0.5 * (m.precision ? (m.accuracy * 2 - m.recall) : 0.85));
+    const fp = Math.round(total * 0.5) - tn;
+    matrices[m.id] = { tp: Math.max(0, tp), fp: Math.max(0, fp), fn: Math.max(0, fn), tn: Math.max(0, tn) };
+  }
+  return matrices;
+}
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload?.length) {
@@ -139,6 +146,27 @@ const ConfusionMatrix = ({ matrix, color }) => {
 // ── Main ──────────────────────────────────────────────────────────────────────
 const ModelsPage = () => {
   const [selectedModel, setSelectedModel] = useState("RandomForest");
+  const [MODELS, setModels] = useState(FALLBACK_MODELS);
+  const [metricsSource, setMetricsSource] = useState("local");
+
+  useEffect(() => {
+    getModelMetrics()
+      .then((data) => {
+        if (data?.modeles && Object.keys(data.modeles).length > 0) {
+          setModels(buildModelsFromAPI(data.modeles));
+          setMetricsSource("api");
+        }
+      })
+      .catch(() => {
+        // API indisponible — on garde les données fallback
+      });
+  }, []);
+
+  const metricsBar = buildBarData(MODELS);
+  const radarData = buildRadarData(MODELS);
+  const rocData = buildRocData(MODELS);
+  const confusionMatrices = buildConfusionMatrices(MODELS);
+
   const activeModel = MODELS.find((m) => m.id === selectedModel);
   const activeMatrix = confusionMatrices[selectedModel];
 
@@ -305,13 +333,19 @@ const ModelsPage = () => {
             </div>
 
             {/* Best model recommendation */}
-            <div className="mt-4 p-3 rounded-xl border"
-              style={{ background: "#f0fdf4", borderColor: "#bbf7d0" }}>
-              <p className="text-xs font-bold text-green-700 mb-1">✅ Meilleur modèle recommandé</p>
-              <p className="text-xs text-green-600">
-                <strong>Random Forest</strong> offre les meilleures performances avec un AUC-ROC de 92.1% et une accuracy de 87.4%.
-              </p>
-            </div>
+            {(() => {
+              const best = [...MODELS].sort((a, b) => (b.f1 || 0) - (a.f1 || 0))[0];
+              return (
+                <div className="mt-4 p-3 rounded-xl border"
+                  style={{ background: "#f0fdf4", borderColor: "#bbf7d0" }}>
+                  <p className="text-xs font-bold text-green-700 mb-1">Meilleur modèle recommandé</p>
+                  <p className="text-xs text-green-600">
+                    <strong>{best?.label}</strong> offre les meilleures performances avec un AUC-ROC de {((best?.auc || 0) * 100).toFixed(1)}% et une accuracy de {((best?.accuracy || 0) * 100).toFixed(1)}%.
+                    {metricsSource === "api" && " (métriques réelles)"}
+                  </p>
+                </div>
+              );
+            })()}
           </motion.div>
         </div>
       </div>

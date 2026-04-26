@@ -1,17 +1,13 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-<<<<<<< HEAD
 from src.api.routes import (
     auth, students, grades, notifications,
     interventions, import_csv, dashboard, predictions
 )
 from src.routers import students as students_v2, recommendations
-=======
-from src.api.routes import auth, students, grades, notifications, interventions, import_csv, dashboard, predictions
 from src.utils.database import engine, Base, SessionLocal
-from src.models import user as user_model, student, grade, prediction as pred_model, notification, intervention
->>>>>>> 30e395c076fc145b0980a67c586433bd16503397
+from src.models import user as user_model, student as student_model, grade, prediction as pred_model, notification, intervention
 
 
 def init_db():
@@ -28,7 +24,7 @@ def init_db():
                 nom="Admin", prenom="PFA",
                 email="admin@pfa.com",
                 hashed_password=pwd.hash("admin123"),
-                role=RoleEnum.admin
+                role=RoleEnum.super_admin
             )
             db.add(admin)
             db.commit()
@@ -42,6 +38,9 @@ def init_db():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    # Charger les modèles ML au démarrage
+    from src.services.prediction_service import ml_service
+    ml_service.load()
     yield
 
 

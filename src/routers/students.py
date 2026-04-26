@@ -71,7 +71,7 @@ def stats_etudiant(
         for sem, notes in moyennes_par_semestre.items()
     }
 
-    derniere_prediction = predictions[-1].resultat if predictions else None
+    derniere_prediction = predictions[-1].statut_couleur if predictions else None
 
     return {
         "etudiant": {
@@ -85,7 +85,7 @@ def stats_etudiant(
         "nombre_modules":         len(grades),
         "derniere_prediction":    derniere_prediction,
         "historique_predictions": [
-            {"date": p.created_at, "resultat": p.resultat}
+            {"date": p.created_at, "resultat": p.statut_couleur}
             for p in predictions
         ],
     }

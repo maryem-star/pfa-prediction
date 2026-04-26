@@ -7,7 +7,8 @@ import {
 import Layout from "../components/Layout";
 import {
   getStudents, getStudent,
-  getStudentPredictions, getStudentGrades
+  getStudentPredictions, getStudentGrades,
+  predictML
 } from "../services/predictionService";
 
 // ── Couleurs selon statut ─────────────────────────────────────────────────────
@@ -205,13 +206,28 @@ const PredictionPage = () => {
       }
       setGrades(Object.keys(gradesMap).length ? gradesMap : studentData);
 
-      // Organiser prédictions par modèle
+      // Organiser prédictions existantes par modèle
       const predsMap = {};
       if (Array.isArray(predsData)) {
         predsData.forEach((p) => { predsMap[p.modele_utilise] = p; });
       } else if (predsData?.modele_utilise) {
         predsMap[predsData.modele_utilise] = predsData;
       }
+
+      // Si aucune prédiction existante, lancer les prédictions ML en temps réel
+      if (Object.keys(predsMap).length === 0) {
+        const mlResults = await Promise.allSettled(
+          MODELES.map((modele) =>
+            predictML({ student_id: parseInt(id), modele_utilise: modele })
+          )
+        );
+        mlResults.forEach((result) => {
+          if (result.status === "fulfilled" && result.value) {
+            predsMap[result.value.modele_utilise] = result.value;
+          }
+        });
+      }
+
       setPredictions(predsMap);
 
     } catch {
