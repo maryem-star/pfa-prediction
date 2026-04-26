@@ -30,12 +30,16 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600;700;800&display=swap');
 
-    .main { 
-        background-color: #0b0f19;
-        background-image: radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.08), transparent 30%), 
-                          radial-gradient(circle at 85% 30%, rgba(16, 185, 129, 0.08), transparent 30%);
+    /* Targeting the overall app background */
+    [data-testid="stAppViewContainer"], .main { 
+        background-color: #000000;
+        background-image: none;
         color: #e2e8f0; 
         font-family: 'Inter', sans-serif;
+    }
+    /* Ensure the sidebar also blends if used */
+    [data-testid="stSidebar"] {
+        background-color: #0a0a0a;
     }
     h1, h2, h3, h4 { font-family: 'Poppins', sans-serif !important; }
 
@@ -203,31 +207,11 @@ with tab1:
         
         # HTML Helper for Progress Bars
         def make_bar(label, val, c):
-            return f'''
-            <div class="metric-row">
-                <span class="metric-label">{label}</span>
-                <span class="metric-val" style="color:{c}">{val:.1%}</span>
-            </div>
-            <div class="mini-bar-bg">
-                <div class="mini-bar-fill" style="width:{val*100}%; background:{c}; box-shadow:0 0 8px {c}"></div>
-            </div>
-            '''
+            return f'<div class="metric-row"><span class="metric-label">{label}</span><span class="metric-val" style="color:{c}">{val:.1%}</span></div><div class="mini-bar-bg"><div class="mini-bar-fill" style="width:{val*100}%; background:{c}; box-shadow:0 0 8px {c}"></div></div>'
 
         with cols[i]:
-            st.markdown(f"""
-            <div class="{card_class}">
-                <div class="model-name" style="color:{color}">{name}</div> {badge}
-                <hr style="border:0; height:1px; background:rgba(255,255,255,0.08); margin:15px 0 10px 0;"/>
-                
-                {make_bar('Accuracy', res['accuracy'], color)}
-                <div style="height:12px;"></div>
-                
-                {make_bar('F1-Score', res['f1'], color)}
-                <div style="height:12px;"></div>
-                
-                {make_bar('Roc-AUC', res['roc_auc'], color)}
-            </div>
-            """, unsafe_allow_html=True)
+            html_content = f'<div class="{card_class}"><div class="model-name" style="color:{color}">{name}</div> {badge}<hr style="border:0; height:1px; background:rgba(255,255,255,0.08); margin:15px 0 10px 0;"/>{make_bar("Accuracy", res["accuracy"], color)}<div style="height:12px;"></div>{make_bar("F1-Score", res["f1"], color)}<div style="height:12px;"></div>{make_bar("Roc-AUC", res["roc_auc"], color)}</div>'
+            st.markdown(html_content, unsafe_allow_html=True)
 
     # Tableau DataFrame
     st.markdown("---")
@@ -469,7 +453,7 @@ with tab5:
         colors5 = ["#10b981" if t >= 80 else "#fbbf24" if t >= 60 else "#f43f5e" for t in taux_vals]
         bars5 = ax5.bar(fil_labels, taux_vals, color=colors5, alpha=0.9, edgecolor="none")
         ax5.axhline(y=80, color="#10b981", linestyle="--", alpha=0.5, linewidth=1.5, label="80% (Excellence)")
-        ax5.axhline(y=60, color="#fbbf24", linestyle="--", alpha=0.5, linewidth=1.5, label="60% (Vigilance)")
+        ax5.axhline(y=60, color="#fbbf24", linestyle="--", alpha=0.5, linewidth=1.5, label="60% (Risque Modéré)")
         for b, t in zip(bars5, taux_vals):
             ax5.text(b.get_x() + b.get_width() / 2, b.get_height() + 1.5,
                      f"{t:.0f}%", ha="center", color="#f8fafc", fontsize=11, fontweight="bold")

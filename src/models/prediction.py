@@ -1,5 +1,5 @@
 
-from sqlalchemy import Column, Integer, Float, String, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, Float, String, Boolean, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from src.utils.database import Base
 from datetime import datetime, timezone
@@ -15,4 +15,4 @@ class Prediction(Base):
     note_predite = Column(Float, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
-    student = relationship("Student", back_populates="predictions")
+    student = relationship("Student", back_populates="predictions")
