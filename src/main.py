@@ -1,9 +1,17 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+<<<<<<< HEAD
+from src.api.routes import (
+    auth, students, grades, notifications,
+    interventions, import_csv, dashboard, predictions
+)
+from src.routers import students as students_v2, recommendations
+=======
 from src.api.routes import auth, students, grades, notifications, interventions, import_csv, dashboard, predictions
 from src.utils.database import engine, Base, SessionLocal
 from src.models import user as user_model, student, grade, prediction as pred_model, notification, intervention
+>>>>>>> 30e395c076fc145b0980a67c586433bd16503397
 
 
 def init_db():
@@ -41,12 +49,13 @@ app = FastAPI(title="PFA Student Prediction API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:5173", "http://localhost:5175"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# Anciens routers
 app.include_router(auth.router)
 app.include_router(students.router)
 app.include_router(grades.router)
@@ -55,6 +64,11 @@ app.include_router(interventions.router)
 app.include_router(import_csv.router)
 app.include_router(dashboard.router)
 app.include_router(predictions.router)
+
+# Nouveaux routers avec rôles
+app.include_router(students_v2.router)
+app.include_router(recommendations.router)
+
 
 @app.get("/")
 def root():
