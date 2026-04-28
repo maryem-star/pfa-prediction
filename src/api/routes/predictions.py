@@ -105,6 +105,7 @@ def predict_ml(
     # Appel du module ML
     from src.ml_models.predict import predict as ml_predict
     features = data.model_dump(exclude={"student_id", "modele_utilise"})
+    features = {k: (v if v is not None else 0.0) for k, v in features.items()}
     result = ml_predict(features, modele=data.modele_utilise)
 
     # Sauvegarde en base
