@@ -3,8 +3,8 @@ __pycache__/
 *.pyc
 alembic/versions/__pycache__/
 
-# ML artifacts (large binary files)
-models/*.pkl
+# ML artifacts — keep trained models in repo
+# models/*.pkl
 
 # Processed data (re-generated from raw)
 data/processed/

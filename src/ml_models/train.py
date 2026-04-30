@@ -1,6 +1,6 @@
 """
-Entranement des 3 modles ML avec Hyperparameter Tuning.
-Modles: Logistic Regression, Random Forest, SVM
+Entraînement des 3 modèles ML avec Hyperparameter Tuning.
+Modèles: Logistic Regression, Random Forest, SVM
 """
 
 import os
@@ -53,12 +53,12 @@ PARAM_GRIDS = {
 
 def train_all(X_train, y_train, cv: int = 5):
     """
-    Entrane les 3 modles avec GridSearchCV et sauvegarde les meilleurs.
+    Entraîne les 3 modèles avec GridSearchCV et sauvegarde les meilleurs.
 
     Args:
-        X_train: donnes d'entranement (dj normalises)
-        y_train: tiquettes d'entranement
-        cv: nombre de folds pour la validation croise
+        X_train: données d'entraînement (déjà normalisées)
+        y_train: étiquettes d'entraînement
+        cv: nombre de folds pour la validation croisée
 
     Returns:
         dict {nom_modele: meilleur_estimateur}
@@ -78,7 +78,7 @@ def train_all(X_train, y_train, cv: int = 5):
     results = {}
 
     for name, config in PARAM_GRIDS.items():
-        print(f"\n Entranement: {name}")
+        print(f"\n  Entraînement: {name}")
         grid = GridSearchCV(
             estimator=config["model"],
             param_grid=config["params"],
@@ -95,27 +95,27 @@ def train_all(X_train, y_train, cv: int = 5):
         # Sauvegarde
         path = os.path.join(MODELS_PATH, f"{name}.pkl")
         joblib.dump(best, path)
-        print(f"   Meilleurs params: {grid.best_params_}")
-        print(f"   Modle sauvegard: {path}")
+        print(f"     Meilleurs params: {grid.best_params_}")
+        print(f"     Modèle sauvegardé: {path}")
 
-    # Sauvegarder aussi le rsum des rsultats
+    # Sauvegarder aussi le résumé des résultats
     joblib.dump(results, os.path.join(MODELS_PATH, "all_models.pkl"))
-    print("\n Tous les modles sauvegards dans models/")
+    print("\n  Tous les modèles sauvegardés dans models/")
     return results
 
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("  PFA  Entranement des modles ML")
+    print("  PFA — Entraînement des modèles ML")
     print("=" * 60)
 
     X_train, X_test, y_train, y_test, features = run_pipeline()
     models = train_all(X_train, y_train)
 
-    print("\n Modles entrans:")
+    print("\n  Modèles entraînés:")
     for name in models:
-        print(f"   {name}")
+        print(f"     {name}")
 
-    # valuation rapide
+    #  Évaluation rapide
     from src.ml_models.evaluate import evaluate_all
     evaluate_all(models, X_test, y_test)

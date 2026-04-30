@@ -25,7 +25,7 @@ def test_data_pipeline_runs():
     assert set(np.unique(y_train)) <= {0,1},"La cible doit etre 0 ou 1"
     # Verifier la presence des features danger/comportement
     assert "Danger_Absences"    in features, "Feature Danger_Absences manquante"
-    assert "Profil_Comportement" in features,"Feature Profil_Comportement manquante"
+    assert "Profil_Comportement" in features, "Feature Profil_Comportement manquante"
 
 
 # ─── Test 2: Conditions de reussite multi-criteres ───────────────────────────
@@ -37,7 +37,7 @@ def test_conditions_reussite():
     # Etudiant qui reussit: Moy=14, Modules_NV=1, PFA=15
     df = pd.DataFrame([{
         "Moyenne_Annuelle": 14.0, "Modules_Non_Valides": 1, "PFA_2":15.0,
-        "Absences_S1": 3, "Absences_S2": 2, "Redoublant": 0,
+        "Absences_S1": 3, "Absences_S2": 2, "Redoublant": 0, "Ratio_NV": 1/12,
     }])
     df = create_target_binary(df)
     assert df["Reussite"].iloc[0] == 1, "Doit reussir: Moy>=12, Modules<=3, PFA>=12"
@@ -45,7 +45,7 @@ def test_conditions_reussite():
     # Echec par moyenne insuffisante
     df2 = pd.DataFrame([{
         "Moyenne_Annuelle": 11.5, "Modules_Non_Valides": 1, "PFA_2": 15.0,
-        "Absences_S1": 3, "Absences_S2": 2, "Redoublant": 0,
+        "Absences_S1": 3, "Absences_S2": 2, "Redoublant": 0, "Ratio_NV": 1/12,
     }])
     df2 = create_target_binary(df2)
     assert df2["Reussite"].iloc[0] == 0, "Doit echouer: Moy < 12"
@@ -53,7 +53,7 @@ def test_conditions_reussite():
     # Echec par modules non valides
     df3 = pd.DataFrame([{
         "Moyenne_Annuelle": 13.0, "Modules_Non_Valides": 4, "PFA_2": 15.0,
-        "Absences_S1": 3, "Absences_S2": 2, "Redoublant": 0,
+        "Absences_S1": 3, "Absences_S2": 2, "Redoublant": 0, "Ratio_NV": 4/12,
     }])
     df3 = create_target_binary(df3)
     assert df3["Reussite"].iloc[0] == 0, "Doit echouer: Modules_NV > 3"
@@ -61,7 +61,7 @@ def test_conditions_reussite():
     # Echec par PFA insuffisante
     df4 = pd.DataFrame([{
         "Moyenne_Annuelle": 13.0, "Modules_Non_Valides": 2, "PFA_2": 10.0,
-        "Absences_S1": 3, "Absences_S2": 2, "Redoublant": 0,
+        "Absences_S1": 3, "Absences_S2": 2, "Redoublant": 0, "Ratio_NV": 2/12,
     }])
     df4 = create_target_binary(df4)
     assert df4["Reussite"].iloc[0] == 0, "Doit echouer: PFA < 12"
@@ -69,20 +69,25 @@ def test_conditions_reussite():
 
 # ─── Test 3: Profil comportemental (absences) ─────────────────────────────────
 def test_profil_comportement():
-    """Verifier les 4 profils comportementaux."""
+    """Verifier les 4 profils comportementaux (0=Stable, 1=Alerte, 2=Preoccupant, 3=Absenteiste)."""
     import pandas as pd
     from src.preprocessing.data_pipeline import create_target_binary
 
+    # Profil base sur le TOTAL des absences:
+    # 0 = total <= 5h  (Tres assidu)
+    # 1 = total 6-15h  (Assidu)
+    # 2 = total 16-30h (Preoccupant)
+    # 3 = total > 30h  (Absenteiste)
     cas = [
-        (2, 2, 0),    # Tres assidu: total=4h -> profil 0
-        (8, 5, 1),    # Assidu: total=13h -> profil 1
-        (14, 12, 2),  # Preoccupant: total=26h -> profil 2
-        (20, 15, 3),  # Absenteiste: total=35h -> profil 3
+        (2, 2, 0),    # total=4h  -> profil 0 (Tres assidu)
+        (8, 5, 1),    # total=13h -> profil 1 (Assidu)
+        (14, 12, 2),  # total=26h -> profil 2 (Preoccupant)
+        (20, 15, 3),  # total=35h -> profil 3 (Absenteiste)
     ]
     for abs1, abs2, expected_profil in cas:
         df = pd.DataFrame([{
             "Moyenne_Annuelle": 13.0, "Modules_Non_Valides": 1, "PFA_2": 14.0,
-            "Absences_S1": abs1, "Absences_S2": abs2, "Redoublant": 0,
+            "Absences_S1": abs1, "Absences_S2": abs2, "Redoublant": 0, "Ratio_NV": 1/12,
         }])
         df = create_target_binary(df)
         got = df["Profil_Comportement"].iloc[0]
@@ -145,7 +150,7 @@ def test_predict_output_structure():
     for key in required:
         assert key in result, f"Cle manquante: {key}"
 
-    assert result["label"] in ["Reussi", "Echec"]
+    assert result["label"] in ["Reussi", "Echec", "R\u00e9ussi", "\u00c9chec"]
     assert 0.0 <= result["probabilite"] <= 1.0
     assert result["statut_couleur"] in ["VERT", "JAUNE", "ROUGE"]
 

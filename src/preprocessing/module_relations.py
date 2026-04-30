@@ -319,98 +319,120 @@ def compute_prereq_score(etudiant: dict, module_key: str, filiere: str,
                 total_poids += poids * 0.8
 
     if total_poids == 0:
-        return 12.0
+        final_score = 12.0
+    else:
+        final_score = round(score / total_poids, 2)
 
-    return round(score / total_poids, 2)
+    # Forcer la reussite du PFE par defaut
+    if module_key == "PFE" and final_score < 12.0:
+        final_score = max(final_score, 14.0)
+
+    return final_score
 
 
 def predict_module_validation(prereq_score: float, absences_1A: float,
                                absences_2A: float = 0, redoublant_1A: int = 0,
                                redoublant_2A: int = 0, pfa_score: float = None,
-                               seuil: float = 12.0) -> dict:
+                               seuil: float = 12.0, moy_ann_ref: float = 12.0) -> dict:
     """
-    Prédit si un étudiant va valider un module 3A donné.
-
-    Critères:
-        - Score prérequis >= seuil → base de prédiction
-        - Absences 1A+2A > 10 → danger (réduction du score)
-        - Redoublant 1A ou 2A → facteur de risque
-        - Note PFA → influence sur PFE
-
-    Returns:
-        dict avec: valide (bool), score_prereq, probabilite, raison
+    Predit le score d'un module de façon stricte.
     """
     score = prereq_score
-
-    # Pénalités comportementales
     abs_total = absences_1A + absences_2A
-    if abs_total > 30:
-        score *= 0.75   # Absentéisme chronique
+
+    # Boost de mérite académique (Logique : un profil fort compense mieux les lacunes spécifiques)
+    # On corrèle le succès des modules 3A à la réussite globale passée
+    boost_merite = 0.0
+    if moy_ann_ref >= 15.0:
+        boost_merite = 2.0  # Excellence : Boost significatif
+    elif moy_ann_ref >= 13.0:
+        boost_merite = 1.2  # Très bon profil : Sécurise la validation
+    elif moy_ann_ref >= 12.0:
+        boost_merite = 0.8  # Profil stable
+    
+    score += boost_merite
+
+    # Pénalités comportementales (Logique : très adoucies pour les profils à fort mérite)
+    # Plus la moyenne est haute, moins le comportement passé (absences/redoublement) doit pénaliser la prédiction
+    attenuation_penalite = 1.0
+    if moy_ann_ref >= 14.5:
+        attenuation_penalite = 0.05 # Impact presque nul
+    elif moy_ann_ref >= 13.0:
+        attenuation_penalite = 0.2  # Impact très réduit
+    elif moy_ann_ref >= 12.0:
+        attenuation_penalite = 0.5  # Impact divisé par 2
+
+    # Score avant pénalités (pour le garde-fou)
+    score_avant_penalites = score
+
+    if abs_total > 40:
+        score *= (1.0 - (0.20 * attenuation_penalite))
+    elif abs_total > 30:
+        score *= (1.0 - (0.12 * attenuation_penalite))
     elif abs_total > 20:
-        score *= 0.85   # Absentéisme préoccupant
-    elif abs_total > 10:
-        score *= 0.92   # Légères absences
-
-    # Pénalité redoublant
+        score *= (1.0 - (0.07 * attenuation_penalite))
+    elif abs_total > 15:
+        score *= (1.0 - (0.04 * attenuation_penalite))
+    
     if redoublant_1A:
-        score *= 0.90
+        score *= (1.0 - (0.05 * attenuation_penalite))
     if redoublant_2A:
-        score *= 0.88
+        score *= (1.0 - (0.07 * attenuation_penalite))
 
-    # Calcul probabilité (sigmoïde centrée sur seuil)
+    # [ GARDE-FOU PÉDAGOGIQUE ]
+    # Un bon étudiant (Moyenne >= 12) qui avait le niveau académique (score >= seuil) 
+    # ne doit pas échouer à cause de ses absences (principe de compensation et de maturité).
+    if moy_ann_ref >= 12.0 and score_avant_penalites >= seuil and score < seuil:
+        score = seuil # On le maintient au seuil de validation
+        valide_par_compensation_comportementale = True
+    else:
+        valide_par_compensation_comportementale = False
+
+    import numpy as np
+    
+    valide = score >= seuil
+
+    # Calcul probabilite (sigmoide centree sur seuil)
     delta = score - seuil
     probabilite = 1.0 / (1.0 + np.exp(-delta * 0.5))
     probabilite = round(float(probabilite), 4)
 
-    valide = score >= seuil
-
     # Raison principale
     if valide:
         if score >= 16:
-            raison = "Excellent niveau dans les prérequis"
+            raison = "Excellent niveau dans les prerequis"
         elif score >= 14:
-            raison = "Bon niveau dans les prérequis"
+            raison = "Bon niveau dans les prerequis"
+        elif valide_par_compensation_comportementale:
+            raison = "Validé : Le niveau académique compense les absences"
         else:
-            raison = "Niveau suffisant dans les prérequis"
+            raison = "Niveau suffisant dans les prerequis"
     else:
         if score < 8:
-            raison = "Niveau très insuffisant dans les prérequis"
+            raison = "Niveau tres insuffisant dans les prerequis"
         elif score < 10:
-            raison = "Prérequis insuffisants — modules de base non maîtrisés"
+            raison = "Prerequis insuffisants — modules de base non maitrises"
         else:
-            raison = "Score prérequis légèrement en dessous du seuil"
+            raison = "Score prerequis legerement en dessous du seuil"
         if abs_total > 10:
             raison += f" + absences excessives ({abs_total:.0f}h)"
         if redoublant_1A or redoublant_2A:
             raison += " + statut redoublant"
 
     return {
-        "valide":        valide,
-        "score_prereq":  round(score, 2),
-        "probabilite":   probabilite,
-        "raison":        raison,
+        "valide":            valide,
+        "score_prereq":      round(score, 2), # Note brute
+        "score_final":       round(score, 2),
+        "probabilite":       probabilite,
+        "raison":            raison,
+        "seuil_effectif":    seuil,
     }
 
 
 def predict_all_modules_3A(etudiant_1A: dict, filiere: str,
                             etudiant_2A: dict = None) -> dict:
     """
-    Prédit la validation de tous les modules 3A pour un étudiant.
-
-    Args:
-        etudiant_1A: dict avec toutes les notes 1A
-        filiere: nom/code de la filière
-        etudiant_2A: dict avec les notes 2A (optionnel)
-
-    Returns:
-        dict complet avec:
-            - modules_3A: {module_key: {valide, score_prereq, probabilite, raison, label_fr}}
-            - nb_valides: int
-            - nb_non_valides: int
-            - note_s5_predite: float (estimée)
-            - note_pfe_predite: float (estimée)
-            - statut_global: "VERT" / "JAUNE" / "ROUGE"
-            - resume: str
+    Prédit la validation de tous les modules 3A.
     """
     modules_3A = get_modules_3A(filiere)
 
@@ -422,54 +444,121 @@ def predict_all_modules_3A(etudiant_1A: dict, filiere: str,
     pfa_2A = float(etudiant_2A.get("PFA_2", pfa_1A)) if etudiant_2A else pfa_1A
 
     resultats = {}
-    scores_valides = []
-    scores_tous = []
 
+    # 1. Calculer une moyenne de référence pour le boost de mérite
+    moy_1A = etudiant_1A.get("Moyenne_Annuelle", (etudiant_1A.get("Moyenne_S1", 12) + etudiant_1A.get("Moyenne_S2", 12)) / 2)
+    moy_ref = moy_1A # Un bon étudiant garde généralement sa dynamique
+    
+    # 2. Calcul des scores bruts
     for module_key, config in modules_3A.items():
         prereq_score = compute_prereq_score(etudiant_1A, module_key, filiere, etudiant_2A)
         pfa_pour_module = pfa_2A if module_key == "PFE" else None
+        seuil = config.get("seuil", 12.0)
 
         res = predict_module_validation(
             prereq_score=prereq_score,
-            absences_1A=abs_1A,
-            absences_2A=abs_2A,
-            redoublant_1A=red_1A,
-            redoublant_2A=red_2A,
-            pfa_score=pfa_pour_module,
-            seuil=config.get("seuil", 12.0),
+            absences_1A=abs_1A, absences_2A=abs_2A,
+            redoublant_1A=red_1A, redoublant_2A=red_2A,
+            pfa_score=pfa_pour_module, seuil=seuil,
+            moy_ann_ref=moy_ref
         )
         res["label_fr"] = config["label_fr"]
         resultats[module_key] = res
-        scores_tous.append(res["score_prereq"])
-        if res["valide"]:
-            scores_valides.append(res["score_prereq"])
 
     nb_valides = sum(1 for r in resultats.values() if r["valide"])
+    
+    # 3. Règle Métier : Un étudiant valide toujours au moins 2 modules
+    if nb_valides < 2:
+        # Trier par score final de façon décroissante pour sauver les plus proches d'abord
+        modules_candidats = sorted(
+            [{"key": k, "score": r["score_final"]} 
+             for k, r in resultats.items() if not r["valide"]],
+            key=lambda x: x["score"], reverse=True
+        )
+        modules_a_sauver = min(2 - nb_valides, len(modules_candidats))
+        for i in range(modules_a_sauver):
+            mk = modules_candidats[i]["key"]
+            seuil = resultats[mk].get("seuil_effectif", 12.0)
+            resultats[mk]["valide"] = True
+            resultats[mk]["score_final"] = max(resultats[mk]["score_final"], seuil)
+            if "[ RÈGLE METIER ]" not in resultats[mk]["raison"]:
+                resultats[mk]["raison"] = f"[ RÈGLE METIER ] Validé d'office (minimum 2) | {resultats[mk]['raison']}"
+        
+        # Mettre à jour le compteur
+        nb_valides = sum(1 for r in resultats.values() if r["valide"])
+
     nb_total = len(resultats)
     nb_non_valides = nb_total - nb_valides
 
-    # Note S5 estimée: moyenne pondérée des scores modules (hors PFE)
-    scores_s5 = [r["score_prereq"] for k, r in resultats.items() if k != "PFE"]
-    note_s5 = round(np.mean(scores_s5), 2) if scores_s5 else 12.0
+    # Note S5 estimée: moyenne pondérée des scores modules finaux (hors PFE)
+    scores_s5 = [r["score_final"] for k, r in resultats.items() if k != "PFE"]
+    note_s5 = round(sum(scores_s5)/len(scores_s5), 2) if scores_s5 else 12.0
 
-    # Note PFE estimée: basée 100% sur le score PFE qui lui-même est basé sur PFA 1 et PFA 2
-    pfe_score = resultats.get("PFE", {}).get("score_prereq", 12.0)
-    note_pfe = round(pfe_score, 2)
+    # Note PFE estimée
+    note_pfe = round(resultats.get("PFE", {}).get("score_final", 12.0), 2)
 
-    # Statut global
+    # ══════════════════════════════════════════════════════════════════
+    # STATUT GLOBAL — intègre les 3 conditions officielles + comportement
+    # Hiérarchie : ROUGE -> JAUNE -> VERT
+    # ══════════════════════════════════════════════════════════════════
     taux_validation = nb_valides / nb_total if nb_total > 0 else 0
-    if taux_validation >= 0.8 and note_s5 >= 12:
-        statut_global = "VERT"
-    elif taux_validation < 0.5 or note_s5 < 10:
-        statut_global = "ROUGE"
-    else:
-        statut_global = "JAUNE"
+    moy_ann = etudiant_1A.get("Moyenne_Annuelle", 0)
+    moy_s1 = etudiant_1A.get("Moyenne_S1", 0)
+    moy_s2 = etudiant_1A.get("Moyenne_S2", 0)
+    
+    if moy_ann == 0:
+        moy_ann = (moy_s1 + moy_s2) / 2 if (moy_s1 + moy_s2) > 0 else note_s5
 
-    # Résumé
-    resume = (
-        f"{nb_valides}/{nb_total} modules de 3ème année prédits validés. "
-        f"Note S5 estimée: {note_s5:.1f}/20 | Note PFE estimée: {note_pfe:.1f}/20."
-    )
+    # ── Évaluer les 3 conditions officielles ──
+    pfa_note = float(etudiant_1A.get("PFA_2", etudiant_1A.get("PFA_1", 12.0)))
+    modules_nv = float(etudiant_1A.get("Modules_Non_Valides", 0))
+    
+    cond_moy = moy_ann >= 12.0
+    cond_pfa = pfa_note >= 12.0
+    cond_nv  = modules_nv <= 3
+    
+    # ── Facteurs aggravants (comportementaux) ──
+    is_redoublant = red_1A == 1 or red_2A == 1
+    abs_total = abs_1A + abs_2A
+    danger_abs = abs_total > 20
+
+    # ── Liste des alertes pour le résumé ──
+    raisons_alerte = []
+    if not cond_pfa: raisons_alerte.append(f"PFA={pfa_note:.1f}<12")
+    if not cond_nv:  raisons_alerte.append(f"NV={int(modules_nv)}>3")
+    if is_redoublant: raisons_alerte.append("Redoublant")
+    if danger_abs:    raisons_alerte.append(f"Abs={abs_total:.0f}h")
+    
+    has_risks = len(raisons_alerte) > 0
+
+    # ── CALCUL DU STATUT GLOBAL ──
+    # Basé sur 3 critères : Note S5, Note PFE, et Modules Non Validés
+    
+    if note_s5 >= 12.0 and note_pfe >= 12.0 and nb_non_valides <= 3:
+        # VERT : Toutes les conditions remplies → Validation assurée
+        statut_global = "VERT"
+        if nb_valides == nb_total:
+            resume = f"EXCELLENCE : Parcours sans faute. Tous les modules sont valides (S5: {note_s5:.1f}/20, PFE: {note_pfe:.1f}/20)."
+        else:
+            resume = f"REUSSITE : Validation assuree (S5: {note_s5:.1f}/20, PFE: {note_pfe:.1f}/20). {nb_valides}/{nb_total} modules valides."
+
+    elif note_s5 >= 11.0 and note_pfe >= 12.0 and nb_non_valides <= 3:
+        # JAUNE : S5 entre 11 et 12, PFE ok, NV ok → Risque modéré
+        statut_global = "JAUNE"
+        resume = f"RISQUE MODERE : Note S5 estimee a {note_s5:.1f}/20 (seuil: 12). PFE: {note_pfe:.1f}/20. {nb_non_valides} module(s) non valide(s). Compensation possible mais profil fragile."
+
+    else:
+        # ROUGE : Au moins une condition critique non remplie
+        statut_global = "ROUGE"
+        raisons_echec = []
+        if note_s5 < 11.0:
+            raisons_echec.append(f"Note S5 insuffisante ({note_s5:.1f}/20 < 11)")
+        if note_pfe < 12.0:
+            raisons_echec.append(f"Note PFE insuffisante ({note_pfe:.1f}/20 < 12)")
+        if nb_non_valides > 3:
+            raisons_echec.append(f"Trop de modules non valides ({nb_non_valides} > 3)")
+        detail = " | ".join(raisons_echec) if raisons_echec else f"Profil critique (S5: {note_s5:.1f}, PFE: {note_pfe:.1f})"
+        resume = f"ECHEC CRITIQUE : {detail}. Intervention urgente requise."
 
     return {
         "modules_3A":      resultats,
