@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Sidebar from "./Sidebar";
 
-const Layout = ({ children }) => {
+const Layout = ({ children, hideSidebar = false}) => {
   const [collapsed, setCollapsed] = useState(false);
 
   return (

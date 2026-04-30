@@ -18,7 +18,7 @@ class RegisterRequest(BaseModel):
     prenom: str
     email: str
     password: str
-    role: str = "enseignant"
+    role: str = "etudiant"
 
 @router.post("/register")
 def register(data: RegisterRequest, db: Session = Depends(get_db)):
@@ -41,5 +41,31 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == data.email).first()
     if not user or not pwd_context.verify(data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect")
-    token = create_access_token({"sub": user.email, "role": user.role.value})
-    return {"access_token": token, "token_type": "bearer"} 
+    
+    token = create_access_token({
+        "sub": user.email,
+        "role": user.role.value,
+        "id": user.id,
+        "nom": user.nom,
+        "prenom": user.prenom,
+        "filiere": user.filiere if hasattr(user, "filiere") else None,
+        "student_id": user.student_id if hasattr(user, "student_id") else None,
+    })
+    
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "nom": user.nom,
+            "prenom": user.prenom,
+            "role": user.role.value,
+            "filiere": user.filiere if hasattr(user, "filiere") else None,
+            "student_id": user.student_id if hasattr(user, "student_id") else None,
+        }
+    }
+
+@router.get("/me")
+def get_me(db: Session = Depends(get_db), current_user: User = Depends(lambda: None)):
+    return {"message": "Endpoint /me disponible"}

@@ -1,278 +1,281 @@
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import Layout from "../components/Layout";
+import { useAuth } from "../context/AuthContext";
+import { motion } from "framer-motion";
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
-  Tooltip, ResponsiveContainer, Legend,
+  CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from "recharts";
-import Layout from "../components/Layout";
+import api from "../services/api";
 
-const FILIERES = ["Tous", "ISIC", "CCN", "2ITE", "GC", "GI", "G2E"];
+const ALL_FILIERES = ["ISIC", "CCN", "2ITE", "GC", "GI", "G2E"];
 
-const mockStudents = [
-  { id: 1,  name: "Yassine Alaoui",      filiere: "ISIC", score: 87, status: "success" },
-  { id: 2,  name: "Nadia Benali",         filiere: "ISIC", score: 72, status: "warning" },
-  { id: 3,  name: "Omar Tahiri",          filiere: "ISIC", score: 41, status: "danger"  },
-  { id: 4,  name: "Salma Idrissi",        filiere: "ISIC", score: 91, status: "success" },
-  { id: 5,  name: "Hamza Bouazza",        filiere: "CCN",  score: 65, status: "warning" },
-  { id: 6,  name: "Fatima Zahra",         filiere: "CCN",  score: 88, status: "success" },
-  { id: 7,  name: "Amine Rami",           filiere: "CCN",  score: 35, status: "danger"  },
-  { id: 8,  name: "Karim Mansouri",       filiere: "2ITE", score: 79, status: "success" },
-  { id: 9,  name: "Layla Chraibi",        filiere: "2ITE", score: 58, status: "warning" },
-  { id: 10, name: "Reda Filali",          filiere: "2ITE", score: 29, status: "danger"  },
-  { id: 11, name: "Sara Tazi",            filiere: "GC",   score: 93, status: "success" },
-  { id: 12, name: "Bilal Hassani",        filiere: "GC",   score: 67, status: "warning" },
-  { id: 13, name: "Imane Bouchaib",       filiere: "GC",   score: 44, status: "danger"  },
-  { id: 14, name: "Mehdi Ouali",          filiere: "GI",   score: 85, status: "success" },
-  { id: 15, name: "Zineb Amrani",         filiere: "GI",   score: 71, status: "warning" },
-  { id: 16, name: "Tariq Bennani",        filiere: "GI",   score: 38, status: "danger"  },
-  { id: 17, name: "Houda Kettani",        filiere: "G2E",  score: 90, status: "success" },
-  { id: 18, name: "Youssef Mrabet",       filiere: "G2E",  score: 63, status: "warning" },
-  { id: 19, name: "Asmaa Lahcen",         filiere: "G2E",  score: 47, status: "danger"  },
-  { id: 20, name: "Soufiane Benkirane",   filiere: "G2E",  score: 82, status: "success" },
-];
+const RISK_COLORS = {
+  success: "#22c55e",
+  warning: "#f59e0b",
+  danger: "#ef4444",
+};
 
-const pieData = [
-  { name: "Réussite", value: 58, color: "#16a34a" },
-  { name: "Moyen",    value: 27, color: "#d97706" },
-  { name: "À risque", value: 15, color: "#dc2626" },
-];
+const FILIERE_COLORS = {
+  ISIC: "#3b82f6", CCN: "#8b5cf6", "2ITE": "#06b6d4",
+  GC: "#f59e0b", GI: "#10b981", G2E: "#f97316",
+};
 
-const barData = FILIERES.slice(1).map((f) => {
-  const s = mockStudents.filter((x) => x.filiere === f);
-  return {
-    filiere: f,
-    Réussite: s.filter((x) => x.status === "success").length,
-    Moyen:    s.filter((x) => x.status === "warning").length,
-    Risque:   s.filter((x) => x.status === "danger").length,
+export default function AdminDashboard() {
+  const { user, getAllowedFilieres, isAdmin, isChefDepartement, isChefFiliere } = useAuth();
+  const navigate = useNavigate();
+
+  const allowedFilieres = getAllowedFilieres();
+  const visibleFilieres = allowedFilieres === null ? ALL_FILIERES : allowedFilieres;
+
+  const [selectedFiliere, setSelectedFiliere] = useState(visibleFilieres[0] || "ISIC");
+  const [stats, setStats] = useState(null);
+  const [students, setStudents] = useState([]);
+  const [loadingStats, setLoadingStats] = useState(true);
+
+  // Role-based page title
+  const getTitle = () => {
+    if (isAdmin()) return "Dashboard — Vue Globale";
+    if (isChefDepartement()) {
+      const dept = user.role.includes("STIN") ? "STIN" : "TRI";
+      return `Dashboard — Département ${dept}`;
+    }
+    if (isChefFiliere()) {
+      const filiere = user.role.replace("chef_filiere_", "");
+      return `Dashboard — Filière ${filiere}`;
+    }
+    return "Dashboard";
   };
-});
 
-const statusConfig = {
-  success: { bg: "#f0fdf4", border: "#bbf7d0", text: "#16a34a", badge: { bg: "#dcfce7", color: "#15803d" }, dot: "#22c55e", label: "Réussite" },
-  warning: { bg: "#fffbeb", border: "#fde68a", text: "#d97706", badge: { bg: "#fef3c7", color: "#b45309" }, dot: "#f59e0b", label: "Moyen"    },
-  danger:  { bg: "#fff1f2", border: "#fecaca", text: "#dc2626", badge: { bg: "#fee2e2", color: "#b91c1c" }, dot: "#ef4444", label: "À risque" },
-};
+  useEffect(() => {
+    fetchStats();
+    fetchStudents();
+  }, [selectedFiliere]);
 
-const StatCard = ({ icon, label, value, sub, color, delay }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-    transition={{ delay, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-    className="relative bg-white rounded-xl p-5 shadow-sm border"
-    style={{ borderColor: "#e5e7eb", borderLeftWidth: 4, borderLeftColor: color }}
-  >
-    <div className="flex items-start justify-between">
-      <div>
-        <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">{label}</p>
-        <p className="text-3xl font-bold" style={{ color: "#1e293b" }}>{value}</p>
-        <p className="text-xs mt-1 font-medium" style={{ color }}>{sub}</p>
-      </div>
-      <div className="p-2.5 rounded-xl" style={{ background: color + "18" }}>
-        <span style={{ color }}>{icon}</span>
-      </div>
-    </div>
-  </motion.div>
-);
+  const fetchStats = async () => {
+    setLoadingStats(true);
+    try {
+      const res = await api.get("/dashboard/stats");
+      setStats(res.data);
+    } catch {
+      // mock data for dev
+      setStats({
+        total_etudiants: 248,
+        taux_reussite: 78.2,
+        en_surveillance: 42,
+        a_risque: 28,
+        predictions_par_filiere: visibleFilieres.map(f => ({
+          filiere: f,
+          reussite: Math.floor(Math.random() * 30) + 50,
+          moyen: Math.floor(Math.random() * 20) + 15,
+          risque: Math.floor(Math.random() * 15) + 5,
+        }))
+      });
+    } finally {
+      setLoadingStats(false);
+    }
+  };
 
-const CustomTooltip = ({ active, payload }) => {
-  if (active && payload?.length) {
-    return (
-      <div className="bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs shadow-lg">
-        {payload.map((p) => (
-          <div key={p.name} className="flex items-center gap-2 text-gray-700">
-            <span className="w-2 h-2 rounded-full" style={{ background: p.fill }} />
-            {p.name}: <strong>{p.value}</strong>
-          </div>
-        ))}
-      </div>
-    );
-  }
-  return null;
-};
+  const fetchStudents = async () => {
+    try {
+      const res = await api.get(`/v2/students/?filiere=${selectedFiliere}&limit=50`);
+      setStudents(res.data);
+    } catch {
+      // mock
+      setStudents(Array.from({ length: 12 }, (_, i) => ({
+        id: i + 1,
+        nom: ["Alaoui", "Benali", "Chakir", "Douiri", "El Fassi"][i % 5],
+        prenom: ["Yassine", "Nadia", "Omar", "Sara", "Khalid"][i % 5],
+        cne: `R${100000 + i}`,
+        filiere: selectedFiliere,
+        prediction: { statut_couleur: ["VERT", "JAUNE", "ROUGE"][Math.floor(Math.random() * 3)], probabilite: Math.random() * 0.5 + 0.5 }
+      })));
+    }
+  };
 
-const AdminDashboard = () => {
-  const [selectedFiliere, setSelectedFiliere] = useState("Tous");
-  const [sortBy, setSortBy] = useState("status");
+  const getRiskBadge = (couleur) => {
+    if (couleur === "VERT") return "bg-green-100 text-green-700 border border-green-200";
+    if (couleur === "JAUNE") return "bg-yellow-100 text-yellow-700 border border-yellow-200";
+    if (couleur === "ROUGE") return "bg-red-100 text-red-700 border border-red-200";
+    return "bg-gray-100 text-gray-500";
+  };
 
-  const filteredStudents = mockStudents
-    .filter((s) => selectedFiliere === "Tous" || s.filiere === selectedFiliere)
-    .sort((a, b) => {
-      if (sortBy === "status") { const o = { danger: 0, warning: 1, success: 2 }; return o[a.status] - o[b.status]; }
-      return b.score - a.score;
-    });
+  const getRiskLabel = (couleur) => {
+    if (couleur === "VERT") return "En bonne voie";
+    if (couleur === "JAUNE") return "À surveiller";
+    if (couleur === "ROUGE") return "À risque";
+    return "Non évalué";
+  };
 
-  const atRisk      = mockStudents.filter((s) => s.status === "danger");
-  const successCount = mockStudents.filter((s) => s.status === "success").length;
-  const warningCount = mockStudents.filter((s) => s.status === "warning").length;
+  const pieData = [
+    { name: "Réussite", value: stats?.taux_reussite || 78, color: RISK_COLORS.success },
+    { name: "Moyen", value: Math.round((stats?.en_surveillance / (stats?.total_etudiants || 248)) * 100) || 17, color: RISK_COLORS.warning },
+    { name: "À risque", value: Math.round((stats?.a_risque / (stats?.total_etudiants || 248)) * 100) || 11, color: RISK_COLORS.danger },
+  ];
+
+  const statCards = [
+    { label: "Total étudiants", value: stats?.total_etudiants ?? "—", icon: "👥", color: "text-blue-600", bg: "bg-blue-50" },
+    { label: "Taux de réussite", value: stats?.taux_reussite ? `${stats.taux_reussite}%` : "—", icon: "✅", color: "text-green-600", bg: "bg-green-50" },
+    { label: "En surveillance", value: stats?.en_surveillance ?? "—", icon: "⚠️", color: "text-yellow-600", bg: "bg-yellow-50" },
+    { label: "À risque", value: stats?.a_risque ?? "—", icon: "🔴", color: "text-red-600", bg: "bg-red-50" },
+  ];
 
   return (
     <Layout>
-      <div className="min-h-full p-6 space-y-6">
+      <div className="p-6 space-y-6">
         {/* Header */}
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold" style={{ color: "#1e293b" }}>Dashboard Administrateur</h1>
-            <p className="text-sm text-gray-400 mt-0.5">Vue d'ensemble — Année 2024/2025</p>
-          </div>
-          <div className="flex items-center gap-2 text-xs text-gray-400 bg-white border border-gray-200 rounded-xl px-3 py-2 shadow-sm">
-            <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-            Données en temps réel
-          </div>
-        </motion.div>
-
-        {/* Stat cards */}
-        <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-          <StatCard delay={0.05} color="#1e56a0" label="Total Étudiants" value={mockStudents.length} sub="Toutes filières"
-            icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}
-          />
-          <StatCard delay={0.1} color="#16a34a" label="Taux de Réussite" value={`${Math.round((successCount / mockStudents.length) * 100)}%`} sub={`${successCount} étudiants`}
-            icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
-          />
-          <StatCard delay={0.15} color="#d97706" label="En Surveillance" value={warningCount} sub="Prédictions moyennes"
-            icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>}
-          />
-          <StatCard delay={0.2} color="#dc2626" label="À Risque" value={atRisk.length} sub="Intervention requise"
-            icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>}
-          />
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">{getTitle()}</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Suivi des prédictions de réussite — {visibleFilieres.join(", ")}
+          </p>
         </div>
 
-        {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25 }}
-            className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-            <h2 className="text-sm font-semibold text-gray-700 mb-4">Répartition des Prédictions</h2>
-            <ResponsiveContainer width="100%" height={220}>
+        {/* Stat Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {statCards.map((card, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.07 }}
+              className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100"
+            >
+              <div className={`w-10 h-10 rounded-xl ${card.bg} flex items-center justify-center text-xl mb-3`}>
+                {card.icon}
+              </div>
+              <p className="text-2xl font-bold text-gray-800">{card.value}</p>
+              <p className="text-xs text-gray-500 mt-1">{card.label}</p>
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Charts row */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Pie */}
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+            <h2 className="text-sm font-semibold text-gray-700 mb-4">Répartition globale</h2>
+            <ResponsiveContainer width="100%" height={200}>
               <PieChart>
-                <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={3} dataKey="value">
-                  {pieData.map((entry, i) => <Cell key={i} fill={entry.color} stroke="transparent" />)}
+                <Pie data={pieData} cx="50%" cy="50%" innerRadius={55} outerRadius={85} dataKey="value" label={({ name, value }) => `${name} ${value}%`} labelLine={false}>
+                  {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                 </Pie>
-                <Tooltip content={<CustomTooltip />} />
-                <Legend formatter={(v) => <span className="text-xs text-gray-500">{v}</span>} />
+                <Tooltip formatter={(v) => `${v}%`} />
               </PieChart>
             </ResponsiveContainer>
-          </motion.div>
+          </div>
 
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-            <h2 className="text-sm font-semibold text-gray-700 mb-4">Prédictions par Filière</h2>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={barData} barSize={14}>
-                <XAxis dataKey="filiere" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-                <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(0,0,0,0.03)" }} />
-                <Bar dataKey="Réussite" fill="#16a34a" radius={[3, 3, 0, 0]} />
-                <Bar dataKey="Moyen"    fill="#d97706" radius={[3, 3, 0, 0]} />
-                <Bar dataKey="Risque"   fill="#dc2626" radius={[3, 3, 0, 0]} />
+          {/* Bar by filiere */}
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+            <h2 className="text-sm font-semibold text-gray-700 mb-4">Par filière</h2>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={stats?.predictions_par_filiere || []}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                <XAxis dataKey="filiere" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Bar dataKey="reussite" name="Réussite" fill={RISK_COLORS.success} radius={[4,4,0,0]} />
+                <Bar dataKey="moyen" name="Moyen" fill={RISK_COLORS.warning} radius={[4,4,0,0]} />
+                <Bar dataKey="risque" name="À risque" fill={RISK_COLORS.danger} radius={[4,4,0,0]} />
               </BarChart>
             </ResponsiveContainer>
-          </motion.div>
+          </div>
         </div>
 
-        {/* Students + Alerts */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-          {/* Student list */}
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.35 }}
-            className="xl:col-span-2 bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-              <h2 className="text-sm font-semibold text-gray-700">Liste des Étudiants</h2>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-400">Trier:</span>
-                <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
-                  className="text-xs border border-gray-200 text-gray-600 rounded-lg px-2 py-1 outline-none bg-gray-50">
-                  <option value="status">Par statut</option>
-                  <option value="score">Par score</option>
-                </select>
-              </div>
-            </div>
-
+        {/* Students by filiere */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="p-5 border-b border-gray-100 flex items-center justify-between flex-wrap gap-3">
+            <h2 className="text-sm font-semibold text-gray-700">Étudiants par filière</h2>
             {/* Filiere tabs */}
-            <div className="flex flex-wrap gap-1.5 mb-4">
-              {FILIERES.map((f) => (
-                <button key={f} onClick={() => setSelectedFiliere(f)}
-                  className="px-3 py-1 text-xs font-semibold rounded-full border transition-all duration-150"
-                  style={selectedFiliere === f
-                    ? { background: "#1e56a0", color: "#fff", borderColor: "#1e56a0" }
-                    : { background: "#f9fafb", color: "#6b7280", borderColor: "#e5e7eb" }}>
+            <div className="flex gap-2 flex-wrap">
+              {visibleFilieres.map(f => (
+                <button
+                  key={f}
+                  onClick={() => setSelectedFiliere(f)}
+                  className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
+                    selectedFiliere === f
+                      ? "text-white shadow-sm"
+                      : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                  }`}
+                  style={selectedFiliere === f ? { backgroundColor: FILIERE_COLORS[f] || "#1B3A6B" } : {}}
+                >
                   {f}
                 </button>
               ))}
             </div>
+          </div>
 
-            {/* Student rows */}
-            <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-              <AnimatePresence mode="popLayout">
-                {filteredStudents.map((student, i) => {
-                  const cfg = statusConfig[student.status];
-                  return (
-                    <motion.div key={student.id}
-                      initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 10 }} transition={{ delay: i * 0.03 }}
-                      className="flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all hover:shadow-sm"
-                      style={{ background: cfg.bg, borderColor: cfg.border }}>
-                      {/* Avatar */}
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                        style={{ background: cfg.badge.bg, color: cfg.badge.color }}>
-                        {student.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-gray-800 truncate">{student.name}</p>
-                        <p className="text-xs text-gray-400">{student.filiere}</p>
-                      </div>
-                      {/* Score bar */}
-                      <div className="w-24 hidden sm:block">
-                        <div className="flex justify-between mb-1">
-                          <span className="text-xs text-gray-400">Score</span>
-                          <span className="text-xs font-bold" style={{ color: cfg.text }}>{student.score}%</span>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-gray-50">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Étudiant</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">CNE</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Statut prédiction</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Probabilité</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {students.map((s) => (
+                  <tr
+                    key={s.id}
+                    className="hover:bg-gray-50 transition-colors cursor-pointer"
+                    onClick={() => navigate(`/students/${s.id}/stats`)}
+                  >
+                    <td className="px-4 py-3">
+                      <p className="text-sm font-medium text-gray-800">{s.prenom} {s.nom}</p>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{s.cne}</td>
+                    <td className="px-4 py-3">
+                      {s.prediction ? (
+                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${getRiskBadge(s.prediction.statut_couleur)}`}>
+                          {getRiskLabel(s.prediction.statut_couleur)}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400">Non évalué</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {s.prediction?.probabilite ? (
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 bg-gray-100 rounded-full h-1.5 w-20">
+                            <div
+                              className="h-1.5 rounded-full"
+                              style={{
+                                width: `${Math.round(s.prediction.probabilite * 100)}%`,
+                                backgroundColor: s.prediction.statut_couleur === "VERT" ? RISK_COLORS.success : s.prediction.statut_couleur === "JAUNE" ? RISK_COLORS.warning : RISK_COLORS.danger
+                              }}
+                            />
+                          </div>
+                          <span className="text-xs text-gray-600">{Math.round(s.prediction.probabilite * 100)}%</span>
                         </div>
-                        <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full" style={{ width: `${student.score}%`, background: cfg.dot }} />
-                        </div>
-                      </div>
-                      <span className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0"
-                        style={{ background: cfg.badge.bg, color: cfg.badge.color }}>
-                        {cfg.label}
-                      </span>
-                    </motion.div>
-                  );
-                })}
-              </AnimatePresence>
-            </div>
-            <p className="text-xs text-gray-400 mt-3">{filteredStudents.length} étudiant(s) affiché(s)</p>
-          </motion.div>
-
-          {/* Alerts */}
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
-              <h2 className="text-sm font-semibold text-gray-700">Alertes — Étudiants à Risque</h2>
-            </div>
-            <div className="space-y-2 max-h-96 overflow-y-auto">
-              {atRisk.map((s) => (
-                <div key={s.id} className="flex items-center gap-3 p-3 rounded-xl border"
-                  style={{ background: "#fff1f2", borderColor: "#fecaca" }}>
-                  <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-800 truncate">{s.name}</p>
-                    <p className="text-xs text-gray-400">{s.filiere} — Score: {s.score}%</p>
-                  </div>
-                  <span className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0"
-                    style={{ background: "#fee2e2", color: "#b91c1c" }}>Risque</span>
-                </div>
-              ))}
-            </div>
-            <div className="mt-4 pt-3 border-t border-gray-100">
-              <p className="text-xs text-gray-400">{atRisk.length} étudiants nécessitent une intervention</p>
-            </div>
-          </motion.div>
+                      ) : "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); navigate(`/students/${s.id}/stats`); }}
+                        className="text-xs text-[#1B3A6B] hover:underline font-medium"
+                      >
+                        Voir statistiques →
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {students.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8 text-center text-gray-400 text-sm">
+                      Aucun étudiant dans cette filière
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </Layout>
   );
-};
-
-export default AdminDashboard;
+}
