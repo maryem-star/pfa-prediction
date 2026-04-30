@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from src.utils.database import get_db
 from src.models.prediction import Prediction
@@ -10,7 +10,7 @@ import os
 
 router = APIRouter(prefix="/predictions", tags=["Predictions"])
 
-# â”€â”€â”€ SchÃ©mas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# --- Schemas ---
 class PredictionCreate(BaseModel):
     student_id: int
     modele_utilise: Optional[str] = "RandomForest"
@@ -18,32 +18,27 @@ class PredictionCreate(BaseModel):
     statut_couleur: Optional[str] = None
     note_predite: Optional[float] = None
 
-# â”€â”€â”€ SchÃ©ma commun: notes rÃ©elles par position (Module_SX_Y) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class StudentFeaturesBase(BaseModel):
-    """Features communes Ã  tous les schÃ©mas de prÃ©diction â€” alignÃ©es sur le pipeline ML."""
-    # 1Ã¨re AnnÃ©e â€” Semestre 1
     Absences_S1:    Optional[float] = 0.0
-    Module_S1_1:    Optional[float] = None   # Maths 1 / Ã©quivalent
-    Module_S1_2:    Optional[float] = None   # Algo/Physique / Ã©quivalent
-    Module_S1_3:    Optional[float] = None   # Architecture / Ã©quivalent
-    Module_S1_4:    Optional[float] = None   # Electronique / Ã©quivalent
-    Module_S1_5:    Optional[float] = None   # SystÃ¨mes / Ã©quivalent
+    Module_S1_1:    Optional[float] = None
+    Module_S1_2:    Optional[float] = None
+    Module_S1_3:    Optional[float] = None
+    Module_S1_4:    Optional[float] = None
+    Module_S1_5:    Optional[float] = None
     Anglais_Tech_1: Optional[float] = None
     Francais_Pro_1: Optional[float] = None
     Moyenne_S1:     Optional[float] = None
-    # 1Ã¨re AnnÃ©e â€” Semestre 2
     Absences_S2:    Optional[float] = 0.0
-    Module_S2_1:    Optional[float] = None   # Maths 2 / Ã©quivalent
-    Module_S2_2:    Optional[float] = None   # Structures/Physique2
-    Module_S2_3:    Optional[float] = None   # POO/Electronique2
-    Module_S2_4:    Optional[float] = None   # BDD/Thermo
-    Module_S2_5:    Optional[float] = None   # RÃ©seaux/MatÃ©riaux
+    Module_S2_1:    Optional[float] = None
+    Module_S2_2:    Optional[float] = None
+    Module_S2_3:    Optional[float] = None
+    Module_S2_4:    Optional[float] = None
+    Module_S2_5:    Optional[float] = None
     Anglais_Tech_2: Optional[float] = None
     Francais_Pro_2: Optional[float] = None
     PFA_2:          Optional[float] = None
     Moyenne_S2:     Optional[float] = None
     Moyenne_Annuelle: Optional[float] = None
-    # Bilan
     Modules_Non_Valides: Optional[int] = 0
     Redoublant:          Optional[int] = 0
     Redoublant_1A:       Optional[int] = 0
@@ -56,9 +51,8 @@ class PredictionMLRequest(StudentFeaturesBase):
 
 class Prediction3ARequest(StudentFeaturesBase):
     student_id: int
-    filiere: str  # ex: "ite", "isic", "ccn", "gee", "civil", "industriel"
+    filiere: str
     modele_utilise: Optional[str] = "RandomForest"
-    # 2Ã¨me AnnÃ©e (optionnel â€” amÃ©liore la prÃ©cision)
     Absences_S3:    Optional[float] = None
     Module_S3_1:    Optional[float] = None
     Module_S3_2:    Optional[float] = None
@@ -78,37 +72,31 @@ class Prediction3ARequest(StudentFeaturesBase):
     PFA_4:          Optional[float] = None
     Redoublant_2A:  Optional[int] = 0
 
-# â”€â”€â”€ Endpoint: PrÃ©diction ML rÃ©elle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+# --- Prediction ML ---
 @router.post("/ml/predict")
 def predict_ml(
     data: PredictionMLRequest,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    """Lance une prÃ©diction ML rÃ©elle et sauvegarde dans la base de donnÃ©es."""
     student = db.query(Student).filter(Student.id == data.student_id).first()
     if not student:
-        raise HTTPException(status_code=404, detail="Ã‰tudiant non trouvÃ©")
+        raise HTTPException(status_code=404, detail="Etudiant non trouve")
 
-    # VÃ©rifier que les modÃ¨les sont disponibles
     models_dir = os.path.join(
         os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
             os.path.abspath(__file__))))), "models"
     )
     model_path = os.path.join(models_dir, f"{data.modele_utilise}.pkl")
     if not os.path.exists(model_path):
-        raise HTTPException(
-            status_code=503,
-            detail=f"ModÃ¨le '{data.modele_utilise}' non disponible. ExÃ©cutez d'abord train.py."
-        )
+        raise HTTPException(status_code=503, detail=f"Modele '{data.modele_utilise}' non disponible")
 
-    # Appel du module ML
     from src.ml_models.predict import predict as ml_predict
     features = data.model_dump(exclude={"student_id", "modele_utilise"})
     features = {k: (v if v is not None else 0.0) for k, v in features.items()}
     result = ml_predict(features, modele=data.modele_utilise)
 
-    # Sauvegarde en base
     prediction = Prediction(
         student_id=data.student_id,
         modele_utilise=result["modele_utilise"],
@@ -120,30 +108,24 @@ def predict_ml(
     db.commit()
     db.refresh(prediction)
 
-    return {
-        **result,
-        "prediction_id": prediction.id,
-    }
+    return {**result, "prediction_id": prediction.id}
 
-# â”€â”€â”€ Endpoint: PrÃ©diction ML 3Ã¨me AnnÃ©e (Modules & PFE) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+# --- Prediction 3A ---
 @router.post("/ml/predict-3a")
 def predict_ml_3a(
     data: Prediction3ARequest,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    """Lance une prÃ©diction experte pour la 3Ã¨me annÃ©e (validation S5 et PFE)."""
     student = db.query(Student).filter(Student.id == data.student_id).first()
     if not student:
-        raise HTTPException(status_code=404, detail="Ã‰tudiant non trouvÃ©")
+        raise HTTPException(status_code=404, detail="Etudiant non trouve")
 
-    # Appel du module ML expert 3A
     from src.ml_models.predict import predict_modules_3A
 
-    # Extraire toutes les features
     all_data = data.model_dump(exclude={"student_id", "filiere", "modele_utilise"})
 
-    # SÃ©parer 1A et 2A
     champs_2A = {"Absences_S3", "Module_S3_1", "Module_S3_2", "Module_S3_3", "Module_S3_4",
                  "Module_S3_5", "Anglais_Tech_S3", "Francais_Pro_S3",
                  "Absences_S4", "Module_S4_1", "Module_S4_2", "Module_S4_3", "Module_S4_4",
@@ -151,7 +133,6 @@ def predict_ml_3a(
     features_1A = {k: v for k, v in all_data.items() if k not in champs_2A and v is not None}
     features_2A = {k: v for k, v in all_data.items() if k in champs_2A and v is not None}
 
-    # Mapper S3/S4 vers les clÃ©s attendues par le systÃ¨me 2A
     if features_2A:
         mapping_2a = {
             "Absences_S3": "Absences_S1", "Absences_S4": "Absences_S2",
@@ -167,7 +148,6 @@ def predict_ml_3a(
         }
         features_2A = {mapping_2a.get(k, k): v for k, v in features_2A.items()}
 
-    # ExÃ©cuter la prÃ©diction globale
     resultats_3A = predict_modules_3A(
         etudiant_1A=features_1A,
         filiere=data.filiere,
@@ -177,7 +157,8 @@ def predict_ml_3a(
 
     return resultats_3A
 
-# â”€â”€â”€ Endpoint: PrÃ©diction par lot â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+# --- Batch prediction (JSON) ---
 class BatchRequest(BaseModel):
     students: List[PredictionMLRequest]
 
@@ -187,7 +168,6 @@ def predict_ml_batch(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    """PrÃ©diction pour plusieurs Ã©tudiants en une seule requÃªte."""
     from src.ml_models.predict import predict as ml_predict
     resultats = []
     for s in data.students:
@@ -196,6 +176,7 @@ def predict_ml_batch(
             resultats.append({"student_id": s.student_id, "error": "Etudiant non trouve"})
             continue
         features = s.model_dump(exclude={"student_id", "modele_utilise"})
+        features = {k: (v if v is not None else 0.0) for k, v in features.items()}
         result = ml_predict(features, modele=s.modele_utilise or "RandomForest")
         prediction = Prediction(
             student_id=s.student_id,
@@ -210,7 +191,53 @@ def predict_ml_batch(
     return {"resultats": resultats, "total": len(resultats)}
 
 
-# â”€â”€â”€ Endpoints existants (inchangÃ©s) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# --- Batch prediction via CSV file upload (BatchPredictionPage) ---
+@router.post("/batch")
+async def predict_batch_csv(
+    file: UploadFile = File(...),
+    modele: str = Form("RandomForest"),
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    import pandas as pd
+    import io as iomod
+    from src.ml_models.predict import predict as ml_predict
+
+    contents = await file.read()
+    try:
+        df = pd.read_csv(iomod.BytesIO(contents))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Format CSV invalide")
+
+    results = []
+    for _, row in df.iterrows():
+        features = {}
+        for col in row.index:
+            if col == "student_id":
+                continue
+            try:
+                val = float(row[col])
+                features[col] = val if pd.notna(val) else 0.0
+            except (ValueError, TypeError):
+                features[col] = 0.0
+
+        try:
+            result = ml_predict(features, modele=modele)
+            result["student_id"] = row.get("student_id", "")
+            results.append(result)
+        except Exception as e:
+            results.append({
+                "student_id": row.get("student_id", ""),
+                "error": str(e),
+                "statut_couleur": "ROUGE",
+                "label": "Erreur",
+                "probabilite": 0,
+            })
+
+    return {"predictions": results, "total": len(results)}
+
+
+# --- Existing endpoints ---
 @router.get("/")
 def get_predictions(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     return db.query(Prediction).all()
@@ -219,14 +246,14 @@ def get_predictions(db: Session = Depends(get_db), current_user=Depends(get_curr
 def get_prediction_by_student(student_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     prediction = db.query(Prediction).filter(Prediction.student_id == student_id).first()
     if not prediction:
-        raise HTTPException(status_code=404, detail="Aucune prÃ©diction pour cet Ã©tudiant")
+        raise HTTPException(status_code=404, detail="Aucune prediction pour cet etudiant")
     return prediction
 
 @router.post("/")
 def create_prediction(data: PredictionCreate, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     student = db.query(Student).filter(Student.id == data.student_id).first()
     if not student:
-        raise HTTPException(status_code=404, detail="Ã‰tudiant non trouvÃ©")
+        raise HTTPException(status_code=404, detail="Etudiant non trouve")
     from src.ml_models.predict import classifier_couleur
     couleur = classifier_couleur(data.probabilite_reussite, None) if data.probabilite_reussite else "JAUNE"
     prediction = Prediction(
@@ -253,15 +280,13 @@ def get_dashboard_couleurs(db: Session = Depends(get_db), current_user=Depends(g
 
 @router.get("/ml/metriques")
 def get_model_metrics(current_user=Depends(get_current_user)):
-    """Retourne les mÃ©triques des modÃ¨les ML (pour Interface 6)."""
-    import joblib, os
+    import joblib
     models_dir = os.path.join(
         os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
             os.path.abspath(__file__))))), "models"
     )
     path = os.path.join(models_dir, "metrics.pkl")
     if not os.path.exists(path):
-        raise HTTPException(status_code=503,
-            detail="MÃ©triques non disponibles. ExÃ©cutez evaluate.py d'abord.")
+        raise HTTPException(status_code=503, detail="Metriques non disponibles")
     metrics = joblib.load(path)
     return {"modeles": metrics}

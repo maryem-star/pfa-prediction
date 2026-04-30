@@ -10,6 +10,7 @@ class Student(Base):
     id        = Column(Integer, primary_key=True, index=True)
     nom       = Column(String(100), nullable=False)
     prenom    = Column(String(100), nullable=False)
+    cne       = Column(String(50), unique=True, nullable=True, index=True)
     email     = Column(String(150), unique=True)
     filiere   = Column(String(100))
     annee     = Column(String(10))
