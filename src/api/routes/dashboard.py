@@ -2,29 +2,68 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from src.utils.database import get_db
 from src.models.student import Student
+from src.models.prediction import Prediction
 from src.models.intervention import Intervention
 from src.models.notification import Notification
 from src.auth.dependencies import get_current_user
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
+ALL_FILIERES = ["ISIC", "CCN", "2ITE", "G2E", "GI", "GC"]
+
+
 @router.get("/stats")
 def get_stats(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     total_etudiants = db.query(Student).count()
-    par_filiere = {}
-    for filiere in ["ISIC", "G2E", "GI", "2ITE", "Genie-Civil", "CCN"]:
-        par_filiere[filiere] = db.query(Student).filter(Student.filiere == filiere).count()
-    total_interventions = db.query(Intervention).count()
-    interventions_ouvertes = db.query(Intervention).filter(Intervention.statut == "ouvert").count()
-    notifications_non_lues = db.query(Notification).filter(
-        Notification.user_id == current_user.id,
-        Notification.lu.is_(False)
-    ).count()
+
+    # Compter les prédictions par couleur
+    from sqlalchemy import func, distinct
+
+    # Dernière prédiction par étudiant (subquery)
+    latest_pred_subq = (
+        db.query(
+            Prediction.student_id,
+            func.max(Prediction.id).label("max_id")
+        )
+        .group_by(Prediction.student_id)
+        .subquery()
+    )
+
+    latest_preds = (
+        db.query(Prediction)
+        .join(latest_pred_subq, Prediction.id == latest_pred_subq.c.max_id)
+        .all()
+    )
+
+    vert_count = sum(1 for p in latest_preds if p.statut_couleur == "VERT")
+    jaune_count = sum(1 for p in latest_preds if p.statut_couleur == "JAUNE")
+    rouge_count = sum(1 for p in latest_preds if p.statut_couleur == "ROUGE")
+    predicted_count = vert_count + jaune_count + rouge_count
+
+    taux_reussite = round((vert_count / predicted_count * 100), 1) if predicted_count > 0 else 0
+
+    # Predictions par filière
+    predictions_par_filiere = []
+    for filiere in ALL_FILIERES:
+        filiere_students = db.query(Student.id).filter(Student.filiere == filiere).all()
+        filiere_ids = [s.id for s in filiere_students]
+
+        f_preds = [p for p in latest_preds if p.student_id in filiere_ids]
+        reussite = sum(1 for p in f_preds if p.statut_couleur == "VERT")
+        moyen = sum(1 for p in f_preds if p.statut_couleur == "JAUNE")
+        risque = sum(1 for p in f_preds if p.statut_couleur == "ROUGE")
+
+        predictions_par_filiere.append({
+            "filiere": filiere,
+            "reussite": reussite,
+            "moyen": moyen,
+            "risque": risque,
+        })
 
     return {
         "total_etudiants": total_etudiants,
-        "par_filiere": par_filiere,
-        "total_interventions": total_interventions,
-        "interventions_ouvertes": interventions_ouvertes,
-        "notifications_non_lues": notifications_non_lues
+        "taux_reussite": taux_reussite,
+        "en_surveillance": jaune_count,
+        "a_risque": rouge_count,
+        "predictions_par_filiere": predictions_par_filiere,
     }
