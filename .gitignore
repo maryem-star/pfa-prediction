@@ -18,4 +18,6 @@ notebooks/.ipynb_checkpoints/
 
 # Pytest cache
 .pytest_cache/
-*.db
+*.db*.pyc
+__pycache__/
+pfa_dev.db

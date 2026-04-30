@@ -4,6 +4,7 @@ from passlib.context import CryptContext
 from src.utils.database import get_db
 from src.models.user import User
 from src.auth.jwt import create_access_token
+from src.auth.dependencies import get_current_user
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -67,5 +68,13 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
     }
 
 @router.get("/me")
-def get_me(db: Session = Depends(get_db), current_user: User = Depends(lambda: None)):
-    return {"message": "Endpoint /me disponible"}
+def get_me(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return {
+        "id": current_user.id,
+        "email": current_user.email,
+        "nom": current_user.nom,
+        "prenom": current_user.prenom,
+        "role": current_user.role.value,
+        "filiere": current_user.filiere,
+        "student_id": current_user.student_id,
+    }
