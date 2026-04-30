@@ -49,7 +49,11 @@ export const predictMLBatch = async (students) => {
   return res.data;
 };
 
-
+// GET /predictions/ml/metriques — Métriques des modèles ML
+export const getModelMetrics = async () => {
+  const res = await api.get("/predictions/ml/metriques");
+  return res.data;
+};
 
 // GET /predictions/dashboard/couleurs — Répartition des couleurs
 export const getPredictionColors = async () => {
