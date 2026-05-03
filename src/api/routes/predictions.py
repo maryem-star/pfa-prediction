@@ -329,7 +329,7 @@ def get_predictions(db: Session = Depends(get_db), current_user=Depends(get_curr
 
 @router.get("/student/{student_id}")
 def get_prediction_by_student(student_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
-    """Return latest prediction per model for a student."""
+    """Return latest prediction per model for a student, with frontend-compatible field names."""
     from sqlalchemy import func
     latest_subq = (
         db.query(
@@ -345,7 +345,20 @@ def get_prediction_by_student(student_id: int, db: Session = Depends(get_db), cu
         .join(latest_subq, Prediction.id == latest_subq.c.max_id)
         .all()
     )
-    return predictions
+    return [
+        {
+            "id": p.id,
+            "student_id": p.student_id,
+            "modele_utilise": p.modele_utilise,
+            "probabilite": p.probabilite_reussite,
+            "probabilite_reussite": p.probabilite_reussite,
+            "statut_couleur": p.statut_couleur,
+            "note_predite": p.note_predite,
+            "label": p.statut_couleur,
+            "created_at": str(p.created_at) if p.created_at else None,
+        }
+        for p in predictions
+    ]
 
 @router.post("/")
 def create_prediction(data: PredictionCreate, db: Session = Depends(get_db), current_user=Depends(get_current_user)):

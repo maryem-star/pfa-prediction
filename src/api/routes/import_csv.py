@@ -241,10 +241,51 @@ def seed_from_csv(
         db.commit()
         imported += 1
 
+    # Auto-run predictions for all seeded students (so Dashboard/Analysis have data)
+    predicted = 0
+    if imported > 0:
+        try:
+            from src.ml_models.predict import predict as ml_predict
+            from src.models.prediction import Prediction as PredModel
+            all_students = db.query(Student).all()
+            for s in all_students:
+                existing_pred = db.query(PredModel).filter(PredModel.student_id == s.id).first()
+                if existing_pred:
+                    continue
+                grades = db.query(Grade).filter(Grade.student_id == s.id).all()
+                features = {}
+                for g in grades:
+                    features[g.matiere] = g.note
+                notes_s1 = [g.note for g in grades if g.semestre == "S1"]
+                notes_s2 = [g.note for g in grades if g.semestre == "S2"]
+                if notes_s1:
+                    features["Moyenne_S1"] = sum(notes_s1) / len(notes_s1)
+                if notes_s2:
+                    features["Moyenne_S2"] = sum(notes_s2) / len(notes_s2)
+                if notes_s1 and notes_s2:
+                    features["Moyenne_Annuelle"] = (features["Moyenne_S1"] + features["Moyenne_S2"]) / 2
+                features["Absences_S1"] = float(s.absences_s1 or 0)
+                features["Absences_S2"] = float(s.absences_s2 or 0)
+                features["Modules_Non_Valides"] = int(s.modules_non_valides or 0)
+                features["Redoublant"] = int(s.redoublant or 0)
+                result = ml_predict(features, modele="RandomForest")
+                db.add(PredModel(
+                    student_id=s.id,
+                    modele_utilise="RandomForest",
+                    probabilite_reussite=result["probabilite"],
+                    statut_couleur=result["statut_couleur"],
+                    note_predite=result["note_predite"],
+                ))
+                predicted += 1
+            db.commit()
+        except Exception as e:
+            print(f"[SEED] Auto-prediction error: {e}")
+
     return {
-        "message": f"{imported} étudiants importés, {skipped} déjà existants",
+        "message": f"{imported} étudiants importés, {skipped} déjà existants, {predicted} prédictions auto-générées",
         "total_imported": imported,
         "total_skipped": skipped,
+        "total_predicted": predicted,
     }
 
 
