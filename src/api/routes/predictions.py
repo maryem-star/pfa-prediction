@@ -8,7 +8,27 @@ from pydantic import BaseModel
 from typing import Optional, List
 import os
 
+import pandas as pd
+import io
+import numpy as np
+
 router = APIRouter(prefix="/predictions", tags=["Predictions"])
+
+# --- Configuration Batch ---
+COLUMN_ALIASES = {
+    "Absences_S1": ["abs_s1", "absences1", "abs_1", "abs s1", "Absences S1"],
+    "Moyenne_S1": ["moy1", "moy_s1", "moyenne1", "moy s1", "Moyenne S1"],
+    "Absences_S2": ["abs_s2", "absences2", "abs_2", "abs s2", "Absences S2"],
+    "Moyenne_S2": ["moy2", "moy_s2", "moyenne2", "moy s2", "Moyenne S2"],
+    "PFA_2": ["pfa", "pfa2", "projet", "note_pfa", "PFA 2"],
+    "Modules_Non_Valides": ["nv", "modules_nv", "nv_modules", "mnv", "Modules Non Valides"],
+    "Redoublant": ["red", "redoublant", "is_redoublant", "Redoublant"],
+    "Nom": ["nom", "name", "student_name", "Nom"],
+    "Prenom": ["prenom", "first_name", "Prenom"]
+}
+
+S1_FEATURES = ["Mathematiques_1", "Algorithmique_Prog", "Architecture_Ord", "Electronique_Num", "Reseaux_Info_1", "Anglais_Tech_1", "Francais_Pro_1"]
+S2_FEATURES = ["Mathematiques_2", "Structures_Donnees", "Systemes_Exploitation", "Bases_Donnees", "Reseaux_Info_2", "Anglais_Tech_2", "Francais_Pro_2"]
 
 # --- Schemas ---
 class PredictionCreate(BaseModel):
@@ -199,42 +219,67 @@ async def predict_batch_csv(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
+    """PrÃ©diction par lot via CSV/Excel avec normalisation intelligente."""
     import pandas as pd
-    import io as iomod
+    import io, numpy as np
     from src.ml_models.predict import predict as ml_predict
 
-    contents = await file.read()
+    content = await file.read()
     try:
-        df = pd.read_csv(iomod.BytesIO(contents))
-    except Exception:
-        raise HTTPException(status_code=400, detail="Format CSV invalide")
+        if file.filename.endswith('.csv'):
+            df = pd.read_csv(io.BytesIO(content))
+        else:
+            df = pd.read_excel(io.BytesIO(content))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Erreur de lecture du fichier: {str(e)}")
+
+    # 1. Normalisation des colonnes (Aliasing)
+    for target, aliases in COLUMN_ALIASES.items():
+        for alias in aliases:
+            if alias in df.columns and target not in df.columns:
+                df.rename(columns={alias: target}, inplace=True)
+                break
+
+    # 2. Calcul automatique des moyennes si manquantes
+    if "Moyenne_S1" not in df.columns:
+        cols = [c for c in S1_FEATURES if c in df.columns]
+        if cols: df["Moyenne_S1"] = df[cols].mean(axis=1)
+    
+    if "Moyenne_S2" not in df.columns:
+        cols = [c for c in S2_FEATURES if c in df.columns]
+        if cols: df["Moyenne_S2"] = df[cols].mean(axis=1)
 
     results = []
     for _, row in df.iterrows():
-        features = {}
-        for col in row.index:
-            if col == "student_id":
-                continue
-            try:
-                val = float(row[col])
-                features[col] = val if pd.notna(val) else 0.0
-            except (ValueError, TypeError):
-                features[col] = 0.0
+        features = row.to_dict()
+        # Nettoyage et types de base
+        clean_features = {}
+        for k, v in features.items():
+            if pd.isna(v): clean_features[k] = 0.0
+            elif isinstance(v, (np.integer, np.floating)): clean_features[k] = float(v)
+            else: clean_features[k] = v
 
         try:
-            result = ml_predict(features, modele=modele)
-            result["student_id"] = row.get("student_id", "")
-            results.append(result)
-        except Exception as e:
-            results.append({
-                "student_id": row.get("student_id", ""),
-                "error": str(e),
-                "statut_couleur": "ROUGE",
-                "label": "Erreur",
-                "probabilite": 0,
-            })
+            res = ml_predict(clean_features, modele=modele)
+            
+            # Enrichissement avec les infos Ã©tudiant si dispo
+            res["nom"] = str(features.get("Nom", "Inconnu"))
+            res["prenom"] = str(features.get("Prenom", ""))
+            
+            # Conversion finale en types Python natifs pour JSON
+            def to_native(obj):
+                if isinstance(obj, dict): return {k: to_native(v) for k, v in obj.items()}
+                if isinstance(obj, list): return [to_native(x) for x in obj]
+                if isinstance(obj, (np.integer, np.int64)): return int(obj)
+                if isinstance(obj, (np.floating, np.float64)): return float(obj)
+                if isinstance(obj, np.ndarray): return to_native(obj.tolist())
+                return obj
 
-    return {"predictions": results, "total": len(results)}
+            results.append(to_native(res))
+        except Exception as e:
+            results.append({"error": str(e), "nom": str(features.get("Nom", "Erreur")), "prenom": str(features.get("Prenom", ""))})
+
+    return {"predictions": results, "count": len(results)}
 
 
 # --- Existing endpoints ---

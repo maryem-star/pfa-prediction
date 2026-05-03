@@ -20,6 +20,14 @@ Absences > 10h → danger | Redoublant → facteur de risque
 import os
 import numpy as np
 import joblib
+from functools import lru_cache
+
+# PrÃ©-importation pour Ã©viter les erreurs d'import circulaire dans FastAPI
+try:
+    import sklearn.linear_model._logistic
+    import sklearn.svm._base
+except ImportError:
+    pass
 
 BASE_DIR    = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 MODELS_PATH = os.path.join(BASE_DIR, "models")
@@ -40,8 +48,9 @@ PROFIL_DESCRIPTIONS = {
 }
 
 
+@lru_cache(maxsize=10)
 def _load(model_name: str):
-    """Charge le modÃ¨le, le scaler et les feature names."""
+    """Charge le modÃ¨le, le scaler et les feature names avec mise en cache."""
     scaler        = joblib.load(os.path.join(MODELS_PATH, "scaler.pkl"))
     feature_names = joblib.load(os.path.join(MODELS_PATH, "feature_names.pkl"))
     clf           = joblib.load(os.path.join(MODELS_PATH, f"{model_name}.pkl"))
@@ -50,19 +59,20 @@ def _load(model_name: str):
 
 def classifier_couleur(probabilite: float, note_predite: float = None) -> str:
     """
-    VERT/JAUNE/ROUGE basÃ© sur les vraies conditions:
-    - VERT  : note >= 12 ET proba >= 70%
-    - ROUGE : note < 12  OU  proba < 40%
-    - JAUNE : entre les deux
+    Classification stricte basÃ©e uniquement sur la note prÃ©dite :
+      VERT  : note >= 12.0
+      JAUNE : 10.0 <= note < 12.0
+      ROUGE : note < 10.0
     """
-    note = note_predite if note_predite is not None else probabilite * 20
+    note = float(note_predite) if note_predite is not None else float(probabilite) * 20.0
+    note = max(0.0, min(20.0, note))
 
-    if note >= 12 and probabilite >= 0.70:
+    if note >= 12.0:
         return "VERT"
-    elif note < 12 or probabilite < 0.40:
-        return "ROUGE"
-    else:
+    elif note >= 10.0:
         return "JAUNE"
+    else:
+        return "ROUGE"
 
 
 def profil_comportement(abs_s1: float, abs_s2: float, redoublant: int = 0) -> dict:
@@ -191,49 +201,71 @@ def predict(features_dict: dict, modele: str = "LogisticRegression") -> dict:
         features_dict["Danger_Absences"]   = 1 if (abs_s1 > 10 or abs_s2 > 10) else 0
     if "Danger_Redoublant" not in features_dict:
         features_dict["Danger_Redoublant"] = redoublant
-    if "Score_Danger" not in features_dict:
-        features_dict["Score_Danger"] = features_dict["Danger_Absences"] + features_dict["Danger_Redoublant"]
-    if "Profil_Comportement" not in features_dict:
-        total_abs = abs_s1 + abs_s2
-        if total_abs <= 5:    features_dict["Profil_Comportement"] = 0
-        elif total_abs <= 15: features_dict["Profil_Comportement"] = 1
-        elif total_abs <= 30: features_dict["Profil_Comportement"] = 2
-        else:                 features_dict["Profil_Comportement"] = 3
+    # Features comportementales
+    abs_s1     = float(features_dict.get("Absences_S1", 0) or 0)
+    abs_s2     = float(features_dict.get("Absences_S2", 0) or 0)
+    redoublant = int(features_dict.get("Redoublant", 0) or 0)
 
+    # Construire le vecteur de features
     X    = np.array([[features_dict.get(f, 0.0) for f in feature_names]])
+    X    = np.nan_to_num(X, nan=0.0)
     X_sc = scaler.transform(X)
+    X_sc = np.nan_to_num(X_sc, nan=0.0)
 
-    label_num = clf.predict(X_sc)[0]
-    proba     = float(clf.predict_proba(X_sc)[0][1])
+    # PrÃ©diction numÃ©rique
+    label_num = int(clf.predict(X_sc)[0])
+    probas    = clf.predict_proba(X_sc)[0]
+    
+    # Extraire la probabilitÃ© de rÃ©ussite (VERT est Ã  l'index 2 dans ['JAUNE', 'ROUGE', 'VERT'] aprÃ¨s rÃ©entraÃ®nement)
+    if len(probas) == 3:
+        proba = float(probas[2])
+    else:
+        proba = float(probas[label_num]) if label_num < len(probas) else float(np.max(probas))
 
-    moy_s1 = features_dict.get("Moyenne_S1", 10)
-    moy_s2 = features_dict.get("Moyenne_S2", moy_s1)
-    pfa    = features_dict.get("PFA_2", 12)
-    note_predite = proba * 20 * 0.7 + ((moy_s1 + moy_s2) / 2) * 0.3
+    # -- Calcul de la note prÃ©dite basÃ© sur les VRAIES notes --
+    moy_s1 = float(features_dict.get("Moyenne_S1", 0) or 0)
+    moy_s2 = float(features_dict.get("Moyenne_S2", 0) or 0)
+    pfa    = float(features_dict.get("PFA_2", 0) or 0)
+    
+    # Formule acadÃ©mique pondÃ©rÃ©e (35% S1, 35% S2, 30% PFA)
+    if moy_s1 > 0 and moy_s2 > 0 and pfa > 0:
+        note_predite = moy_s1 * 0.35 + moy_s2 * 0.35 + pfa * 0.30
+    elif moy_s1 > 0 and moy_s2 > 0:
+        note_predite = (moy_s1 + moy_s2) / 2.0
+    else:
+        # Fallback : on utilise la probabilitÃ© du modÃ¨le
+        note_predite = proba * 20.0
 
-    moy_annuelle = features_dict.get("Moyenne_Annuelle",
-                                     features_dict.get("Moyenne_S2", note_predite))
-    modules_nv   = features_dict.get("Modules_Non_Valides", 0)
+    note_predite = max(0.0, min(20.0, float(note_predite)))
+
+    # Moyenne annuelle
+    moy_annuelle = features_dict.get("Moyenne_Annuelle")
+    if not moy_annuelle:
+        moy_annuelle = (moy_s1 + moy_s2) / 2 if (moy_s1 > 0 and moy_s2 > 0) else note_predite
+
+    modules_nv = int(features_dict.get("Modules_Non_Valides", 0) or 0)
 
     conditions = {
-        "moy_ok":           float(moy_annuelle) >= 12.0,
-        "mod_ok":           float(modules_nv)   <= 3,
-        "pfa_ok":           float(pfa)          >= 12.0,
-        "abs_s1_danger":    abs_s1 > 10,
-        "abs_s2_danger":    abs_s2 > 10,
-        "redoublant_danger": redoublant == 1,
+        "moy_ok":           bool(float(moy_annuelle) >= 12.0),
+        "mod_ok":           bool(float(modules_nv or 0) <= 3),
+        "pfa_ok":           bool(float(pfa) >= 12.0),
+        "abs_s1_danger":    bool(float(abs_s1) > 10),
+        "abs_s2_danger":    bool(float(abs_s2) > 10),
+        "redoublant_danger": bool(int(redoublant) == 1),
     }
 
-    couleur      = classifier_couleur(proba, note_predite)
+    couleur = classifier_couleur(proba, note_predite)
+    label_text = couleur
+
     comportement = profil_comportement(abs_s1, abs_s2, redoublant)
     facteurs     = top_facteurs_risque({**features_dict, "Moyenne_Annuelle": moy_annuelle}, couleur)
     recs         = recommandations(couleur, facteurs)
 
     return {
-        "label":               "RÃ©ussi" if label_num == 1 else "Ã‰chec",
-        "probabilite":         round(proba, 4),
-        "note_predite":        round(note_predite, 2),
-        "statut_couleur":      couleur,
+        "label":               str(label_text),
+        "probabilite":         round(float(proba), 4),
+        "note_predite":        round(float(note_predite), 2),
+        "statut_couleur":      str(couleur),
         "conditions":          conditions,
         "profil_comportement": comportement,
         "facteurs_risque":     facteurs,
