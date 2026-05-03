@@ -134,6 +134,28 @@ def import_students(
     }
 
 
+@router.post("/reset")
+def reset_data(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    """Delete all students, grades, and predictions (for MySQL users who can't delete the DB file)."""
+    from src.models.prediction import Prediction as PredModel
+    pred_count = db.query(PredModel).count()
+    grade_count = db.query(Grade).count()
+    student_count = db.query(Student).count()
+    db.query(PredModel).delete()
+    db.query(Grade).delete()
+    db.query(Student).delete()
+    db.commit()
+    return {
+        "message": f"Reset: {student_count} étudiants, {grade_count} notes, {pred_count} prédictions supprimés",
+        "deleted_students": student_count,
+        "deleted_grades": grade_count,
+        "deleted_predictions": pred_count,
+    }
+
+
 @router.post("/seed")
 def seed_from_csv(
     db: Session = Depends(get_db),
