@@ -167,6 +167,11 @@ def seed_from_csv(
         filiere_raw = str(row.get("Filiere", "")).strip()
         filiere = FILIERE_MAP.get(filiere_raw, filiere_raw.upper() if filiere_raw else "ISIC")
 
+        abs_s1 = float(row.get("Absences_S1", 0) or 0)
+        abs_s2 = float(row.get("Absences_S2", 0) or 0)
+        mnv = int(row.get("Modules_Non_Valides", 0) or 0)
+        red = int(row.get("Redoublant", 0) or 0)
+
         student = Student(
             nom=str(row.get("Nom", "")).strip(),
             prenom=str(row.get("Prenom", "")).strip(),
@@ -174,7 +179,11 @@ def seed_from_csv(
             email=f"{cne}@ensa.ma",
             filiere=filiere,
             annee="1",
-            semestre="S1"
+            semestre="S1",
+            absences_s1=abs_s1,
+            absences_s2=abs_s2,
+            modules_non_valides=mnv,
+            redoublant=red,
         )
         db.add(student)
         db.commit()

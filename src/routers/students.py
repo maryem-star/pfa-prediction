@@ -73,9 +73,10 @@ def _auto_predict(student_id: int, db: Session) -> Optional[Prediction]:
     if not os.path.exists(model_path):
         return None
 
-    # Récupérer les notes de l'étudiant pour les features
+    # Récupérer les notes et données de l'étudiant pour les features
+    student_obj = db.query(Student).filter(Student.id == student_id).first()
     grades = db.query(Grade).filter(Grade.student_id == student_id).all()
-    features = _grades_to_features(grades)
+    features = _grades_to_features(grades, student=student_obj)
 
     try:
         result = ml_predict(features, modele="RandomForest")
@@ -95,29 +96,33 @@ def _auto_predict(student_id: int, db: Session) -> Optional[Prediction]:
     return prediction
 
 
-def _grades_to_features(grades: list) -> dict:
-    """Convertit les grades de la BDD en features pour le modèle ML."""
+def _grades_to_features(grades: list, student=None) -> dict:
+    """Convertit les grades de la BDD en features pour le modèle ML.
+
+    Uses grade.matiere directly as feature name (matches model feature names).
+    """
     features = {}
 
-    notes_s1 = [g for g in grades if g.semestre == "S1"]
-    notes_s2 = [g for g in grades if g.semestre == "S2"]
+    for g in grades:
+        features[g.matiere] = g.note
 
-    # Mapper les notes par module pour S1
-    for i, g in enumerate(notes_s1[:5], 1):
-        features[f"Module_S1_{i}"] = g.note
+    notes_s1 = [g.note for g in grades if g.semestre == "S1"]
+    notes_s2 = [g.note for g in grades if g.semestre == "S2"]
+
     if notes_s1:
-        features["Moyenne_S1"] = sum(g.note for g in notes_s1) / len(notes_s1)
-
-    # Mapper les notes par module pour S2
-    for i, g in enumerate(notes_s2[:5], 1):
-        features[f"Module_S2_{i}"] = g.note
+        features["Moyenne_S1"] = sum(notes_s1) / len(notes_s1)
     if notes_s2:
-        features["Moyenne_S2"] = sum(g.note for g in notes_s2) / len(notes_s2)
+        features["Moyenne_S2"] = sum(notes_s2) / len(notes_s2)
 
-    # Moyenne annuelle
     all_notes = [g.note for g in grades]
     if all_notes:
         features["Moyenne_Annuelle"] = sum(all_notes) / len(all_notes)
+
+    if student:
+        features["Absences_S1"] = float(student.absences_s1 or 0)
+        features["Absences_S2"] = float(student.absences_s2 or 0)
+        features["Modules_Non_Valides"] = int(student.modules_non_valides or 0)
+        features["Redoublant"] = int(student.redoublant or 0)
 
     return features
 

@@ -1,31 +1,12 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
-  LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip,
+  BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, Legend, Cell,
   RadarChart, Radar, PolarGrid, PolarAngleAxis
 } from "recharts";
 import Layout from "../components/Layout";
 import api from "../services/api";
-
-const mockTrends = [
-  { mois: "Oct", reussite: 62, moyen: 25, risque: 13 },
-  { mois: "Nov", reussite: 65, moyen: 23, risque: 12 },
-  { mois: "Dec", reussite: 58, moyen: 28, risque: 14 },
-  { mois: "Jan", reussite: 70, moyen: 20, risque: 10 },
-  { mois: "Fev", reussite: 72, moyen: 19, risque: 9  },
-  { mois: "Mar", reussite: 75, moyen: 18, risque: 7  },
-];
-
-const correlationData = [
-  { module: "Bases de Donnees",     moyenne: 15.1, correlation: 0.87, impact: "Tres eleve" },
-  { module: "Algorithmique",        moyenne: 14.2, correlation: 0.82, impact: "Tres eleve" },
-  { module: "Mathematiques 2",      moyenne: 14.0, correlation: 0.79, impact: "Eleve"      },
-  { module: "Structures Donnees",   moyenne: 13.7, correlation: 0.75, impact: "Eleve"      },
-  { module: "Reseaux Info 2",       moyenne: 13.9, correlation: 0.71, impact: "Modere"     },
-  { module: "Sys. Exploitation",    moyenne: 12.5, correlation: 0.65, impact: "Modere"     },
-  { module: "Electronique Num.",    moyenne: 11.9, correlation: 0.58, impact: "Faible"     },
-];
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload?.length) {
@@ -65,7 +46,6 @@ const StatCard = ({ label, value, sub, color, icon, delay }) => (
 const AnalysisPage = () => {
   const [stats, setStats] = useState(null);
   const [analysis, setAnalysis] = useState(null);
-  const [period, setPeriod] = useState("6mois");
 
   useEffect(() => {
     api.get("/dashboard/stats")
@@ -81,6 +61,7 @@ const AnalysisPage = () => {
   const moduleAvg = analysis?.module_averages || [];
   const radarData = analysis?.radar_data || [];
   const absencesData = analysis?.absences_data || [];
+  const correlationData = analysis?.correlation_data || [];
 
   return (
     <Layout>
@@ -89,16 +70,7 @@ const AnalysisPage = () => {
           className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-gray-800">Visualisation et Analyse</h1>
-            <p className="text-sm text-gray-400 mt-0.5">Tendances et statistiques detaillees</p>
-          </div>
-          <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
-            {[{ id: "3mois", label: "3 mois" }, { id: "6mois", label: "6 mois" }, { id: "1an", label: "1 an" }].map((p) => (
-              <button key={p.id} onClick={() => setPeriod(p.id)}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                style={period === p.id ? { background: "#1e56a0", color: "#fff" } : { color: "#6b7280" }}>
-                {p.label}
-              </button>
-            ))}
+            <p className="text-sm text-gray-400 mt-0.5">Statistiques detaillees basees sur les donnees reelles</p>
           </div>
         </motion.div>
 
@@ -112,23 +84,6 @@ const AnalysisPage = () => {
           <StatCard delay={0.2} color="#dc2626" label="Taux Risque" value={`${stats?.taux_risque || 0}%`} sub="Intervention necessaire"
             icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>} />
         </div>
-
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
-          className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-          <h2 className="text-sm font-semibold text-gray-700 mb-4">Evolution des predictions dans le temps</h2>
-          <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={mockTrends}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="mois" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} unit="%" />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend formatter={(v) => <span className="text-xs text-gray-500">{v}</span>} />
-              <Line type="monotone" dataKey="reussite" name="Reussite" stroke="#16a34a" strokeWidth={2.5} dot={{ fill: "#16a34a", r: 4 }} />
-              <Line type="monotone" dataKey="moyen"    name="Moyen"    stroke="#d97706" strokeWidth={2.5} dot={{ fill: "#d97706", r: 4 }} />
-              <Line type="monotone" dataKey="risque"   name="A risque" stroke="#dc2626" strokeWidth={2.5} dot={{ fill: "#dc2626", r: 4 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
@@ -197,46 +152,48 @@ const AnalysisPage = () => {
           </motion.div>
         </div>
 
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
-          className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-          <h2 className="text-sm font-semibold text-gray-700 mb-4">Correlation modules et reussite</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr style={{ background: "#f8fafc" }}>
-                  {["Module", "Moyenne promo", "Correlation reussite", "Impact"].map((h) => (
-                    <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 py-3">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {correlationData.map((row, i) => {
-                  const impactColor = row.impact === "Tres eleve" ? "#dc2626" : row.impact === "Eleve" ? "#d97706" : row.impact === "Modere" ? "#1e56a0" : "#6b7280";
-                  const impactBg = row.impact === "Tres eleve" ? "#fee2e2" : row.impact === "Eleve" ? "#fef3c7" : row.impact === "Modere" ? "#eff6ff" : "#f9fafb";
-                  return (
-                    <tr key={i} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-3 text-sm font-medium text-gray-800">{row.module}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{row.moyenne}/20</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className="w-20 h-2 bg-gray-100 rounded-full overflow-hidden">
-                            <div className="h-full rounded-full" style={{ width: `${row.correlation * 100}%`, background: impactColor }} />
+        {correlationData.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
+            className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+            <h2 className="text-sm font-semibold text-gray-700 mb-4">Correlation modules et reussite</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr style={{ background: "#f8fafc" }}>
+                    {["Module", "Moyenne promo", "Taux reussite", "Impact"].map((h) => (
+                      <th key={h} className="text-left text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 py-3">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {correlationData.map((row, i) => {
+                    const impactColor = row.impact === "Tres eleve" ? "#dc2626" : row.impact === "Eleve" ? "#d97706" : row.impact === "Modere" ? "#1e56a0" : "#6b7280";
+                    const impactBg = row.impact === "Tres eleve" ? "#fee2e2" : row.impact === "Eleve" ? "#fef3c7" : row.impact === "Modere" ? "#eff6ff" : "#f9fafb";
+                    return (
+                      <tr key={i} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                        <td className="px-4 py-3 text-sm font-medium text-gray-800">{row.module}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600">{row.moyenne}/20</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-20 h-2 bg-gray-100 rounded-full overflow-hidden">
+                              <div className="h-full rounded-full" style={{ width: `${row.correlation * 100}%`, background: impactColor }} />
+                            </div>
+                            <span className="text-xs font-semibold text-gray-500">{(row.correlation * 100).toFixed(0)}%</span>
                           </div>
-                          <span className="text-xs font-semibold text-gray-500">{(row.correlation * 100).toFixed(0)}%</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: impactBg, color: impactColor }}>
-                          {row.impact}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </motion.div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: impactBg, color: impactColor }}>
+                            {row.impact}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </motion.div>
+        )}
       </div>
     </Layout>
   );

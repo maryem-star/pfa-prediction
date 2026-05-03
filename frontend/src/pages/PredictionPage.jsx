@@ -214,10 +214,11 @@ const PredictionPage = () => {
         predsMap[predsData.modele_utilise] = predsData;
       }
 
-      // Si aucune prédiction existante, lancer les prédictions ML en temps réel
-      if (Object.keys(predsMap).length === 0) {
+      // Lancer les prédictions ML pour les modèles manquants
+      const missingModels = MODELES.filter((m) => !predsMap[m]);
+      if (missingModels.length > 0) {
         const mlResults = await Promise.allSettled(
-          MODELES.map((modele) =>
+          missingModels.map((modele) =>
             predictML({ student_id: parseInt(id), modele_utilise: modele })
           )
         );
@@ -315,15 +316,13 @@ const PredictionPage = () => {
                   <div className="flex flex-wrap gap-3 mt-1">
                     <span className="text-xs text-gray-500">CNE: <strong>{student.cne}</strong></span>
                     <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: "#eff6ff", color: "#1e56a0" }}>{student.filiere}</span>
-                    <span className="text-xs text-gray-500">Année {student.annee_etude}</span>
-                    <span className="text-xs text-gray-500">Absences S1: <strong>{student.Absences_S1 ?? student.absences ?? 0}</strong></span>
-                    <span className="text-xs text-gray-500">Absences S2: <strong>{student.Absences_S2 ?? 0}</strong></span>
-                    {student.Redoublant !== undefined && (
-                      <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
-                        style={{ background: student.Redoublant ? "#fee2e2" : "#dcfce7", color: student.Redoublant ? "#b91c1c" : "#15803d" }}>
-                        {student.Redoublant ? "Redoublant" : "Non redoublant"}
-                      </span>
-                    )}
+                    <span className="text-xs text-gray-500">Année {student.annee || "1A"}</span>
+                    <span className="text-xs text-gray-500">Absences S1: <strong>{student.absences_s1 ?? 0}h</strong></span>
+                    <span className="text-xs text-gray-500">Absences S2: <strong>{student.absences_s2 ?? 0}h</strong></span>
+                    <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
+                      style={{ background: student.redoublant ? "#fee2e2" : "#dcfce7", color: student.redoublant ? "#b91c1c" : "#15803d" }}>
+                      {student.redoublant ? "Redoublant" : "Non redoublant"}
+                    </span>
                   </div>
                 </div>
               </div>
