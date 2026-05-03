@@ -16,15 +16,29 @@ router = APIRouter(prefix="/predictions", tags=["Predictions"])
 
 # --- Configuration Batch ---
 COLUMN_ALIASES = {
+    "Mathematiques_1": ["Module_S1_1", "Maths_1", "Math1"],
+    "Algorithmique_Prog": ["Module_S1_2", "Algo_Prog", "Algorithmique"],
+    "Architecture_Ord": ["Module_S1_3", "Archi_Ord"],
+    "Electronique_Num": ["Module_S1_4", "Elec_Num"],
+    "Reseaux_Info_1": ["Module_S1_5", "Reseaux_1"],
+    "Mathematiques_2": ["Module_S2_1", "Maths_2", "Math2"],
+    "Structures_Donnees": ["Module_S2_2", "Struct_Donnees"],
+    "Systemes_Exploitation": ["Module_S2_3", "Sys_Exploit"],
+    "Bases_Donnees": ["Module_S2_4", "BD"],
+    "Reseaux_Info_2": ["Module_S2_5", "Reseaux_2"],
     "Absences_S1": ["abs_s1", "absences1", "abs_1", "abs s1", "Absences S1"],
     "Moyenne_S1": ["moy1", "moy_s1", "moyenne1", "moy s1", "Moyenne S1"],
     "Absences_S2": ["abs_s2", "absences2", "abs_2", "abs s2", "Absences S2"],
     "Moyenne_S2": ["moy2", "moy_s2", "moyenne2", "moy s2", "Moyenne S2"],
     "PFA_2": ["pfa", "pfa2", "projet", "note_pfa", "PFA 2"],
+    "Anglais_Tech_1": ["Anglais_1", "Eng_Tech_1"],
+    "Francais_Pro_1": ["Francais_1", "Fr_Pro_1"],
+    "Anglais_Tech_2": ["Anglais_2", "Eng_Tech_2"],
+    "Francais_Pro_2": ["Francais_2", "Fr_Pro_2"],
     "Modules_Non_Valides": ["nv", "modules_nv", "nv_modules", "mnv", "Modules Non Valides"],
     "Redoublant": ["red", "redoublant", "is_redoublant", "Redoublant"],
     "Nom": ["nom", "name", "student_name", "Nom"],
-    "Prenom": ["prenom", "first_name", "Prenom"]
+    "Prenom": ["prenom", "first_name", "Prenom"],
 }
 
 S1_FEATURES = ["Mathematiques_1", "Algorithmique_Prog", "Architecture_Ord", "Electronique_Num", "Reseaux_Info_1", "Anglais_Tech_1", "Francais_Pro_1"]
@@ -113,8 +127,34 @@ def predict_ml(
         raise HTTPException(status_code=503, detail=f"Modele '{data.modele_utilise}' non disponible")
 
     from src.ml_models.predict import predict as ml_predict
-    features = data.model_dump(exclude={"student_id", "modele_utilise"})
-    features = {k: (v if v is not None else 0.0) for k, v in features.items()}
+    from src.models.grade import Grade
+
+    # Auto-load grades from DB for the student (real data)
+    grades = db.query(Grade).filter(Grade.student_id == data.student_id).all()
+    features = {}
+    for g in grades:
+        features[g.matiere] = g.note
+    notes_s1 = [g.note for g in grades if g.semestre == "S1"]
+    notes_s2 = [g.note for g in grades if g.semestre == "S2"]
+    if notes_s1:
+        features["Moyenne_S1"] = sum(notes_s1) / len(notes_s1)
+    if notes_s2:
+        features["Moyenne_S2"] = sum(notes_s2) / len(notes_s2)
+    if notes_s1 and notes_s2:
+        features["Moyenne_Annuelle"] = (features["Moyenne_S1"] + features["Moyenne_S2"]) / 2
+
+    # Student-level features (absences, redoublant, etc.)
+    features["Absences_S1"] = float(student.absences_s1 or 0)
+    features["Absences_S2"] = float(student.absences_s2 or 0)
+    features["Modules_Non_Valides"] = int(student.modules_non_valides or 0)
+    features["Redoublant"] = int(student.redoublant or 0)
+
+    # Allow frontend overrides for non-zero values
+    user_features = data.model_dump(exclude={"student_id", "modele_utilise"})
+    for k, v in user_features.items():
+        if v is not None and v != 0 and v != 0.0:
+            features[k] = v
+
     result = ml_predict(features, modele=data.modele_utilise)
 
     prediction = Prediction(
@@ -289,10 +329,23 @@ def get_predictions(db: Session = Depends(get_db), current_user=Depends(get_curr
 
 @router.get("/student/{student_id}")
 def get_prediction_by_student(student_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
-    prediction = db.query(Prediction).filter(Prediction.student_id == student_id).first()
-    if not prediction:
-        raise HTTPException(status_code=404, detail="Aucune prediction pour cet etudiant")
-    return prediction
+    """Return latest prediction per model for a student."""
+    from sqlalchemy import func
+    latest_subq = (
+        db.query(
+            Prediction.modele_utilise,
+            func.max(Prediction.id).label("max_id")
+        )
+        .filter(Prediction.student_id == student_id)
+        .group_by(Prediction.modele_utilise)
+        .subquery()
+    )
+    predictions = (
+        db.query(Prediction)
+        .join(latest_subq, Prediction.id == latest_subq.c.max_id)
+        .all()
+    )
+    return predictions
 
 @router.post("/")
 def create_prediction(data: PredictionCreate, db: Session = Depends(get_db), current_user=Depends(get_current_user)):

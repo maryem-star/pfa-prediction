@@ -15,6 +15,10 @@ class Student(Base):
     filiere   = Column(String(100))
     annee     = Column(String(10))
     semestre  = Column(String(10))
+    absences_s1 = Column(Float, default=0)
+    absences_s2 = Column(Float, default=0)
+    modules_non_valides = Column(Integer, default=0)
+    redoublant = Column(Integer, default=0)
     photo_url = Column(String(255), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 

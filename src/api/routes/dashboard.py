@@ -135,17 +135,60 @@ def get_analysis(db: Session = Depends(get_db), current_user=Depends(get_current
         )
         radar_data.append({"subject": subject, "score": round(avg_val, 1) if avg_val else 0})
 
-    # Absence distribution (from CSV data)
+    # Absence distribution from real student data
+    students_all = db.query(Student).all()
+    abs_0_2 = 0
+    abs_3_5 = 0
+    abs_6_10 = 0
+    abs_gt10 = 0
+    for s in students_all:
+        total_abs = (s.absences_s1 or 0) + (s.absences_s2 or 0)
+        if total_abs <= 4:
+            abs_0_2 += 1
+        elif total_abs <= 10:
+            abs_3_5 += 1
+        elif total_abs <= 20:
+            abs_6_10 += 1
+        else:
+            abs_gt10 += 1
+
     absences_data = [
-        {"range": "0-2", "count": 0},
-        {"range": "3-5", "count": 0},
-        {"range": "6-10", "count": 0},
-        {">10": ">10", "range": ">10", "count": 0},
+        {"range": "0-4h", "count": abs_0_2},
+        {"range": "5-10h", "count": abs_3_5},
+        {"range": "11-20h", "count": abs_6_10},
+        {"range": ">20h", "count": abs_gt10},
     ]
+
+    # Correlation: module averages with prediction success rates
+    correlation_data = []
+    for m, avg in module_avgs:
+        # For each module, find students who have this grade and their prediction status
+        students_with_grade = (
+            db.query(Grade.student_id, Grade.note)
+            .filter(Grade.matiere == m)
+            .all()
+        )
+        if not students_with_grade:
+            continue
+        grade_ids = [sg.student_id for sg in students_with_grade]
+        preds_for_module = [p for p in latest_preds if p.student_id in grade_ids]
+        if preds_for_module:
+            success_rate = sum(1 for p in preds_for_module if p.statut_couleur == "VERT") / len(preds_for_module)
+        else:
+            success_rate = 0.0
+        impact = "Tres eleve" if success_rate > 0.75 else "Eleve" if success_rate > 0.5 else "Modere" if success_rate > 0.25 else "Faible"
+        correlation_data.append({
+            "module": m.replace("_", " "),
+            "moyenne": round(avg, 1),
+            "correlation": round(success_rate, 2),
+            "impact": impact,
+        })
+    correlation_data.sort(key=lambda x: x["correlation"], reverse=True)
 
     return {
         "filiere_stats": filiere_stats,
         "module_averages": module_avg_data,
         "radar_data": radar_data,
         "absences_data": absences_data,
+        "correlation_data": correlation_data,
     }

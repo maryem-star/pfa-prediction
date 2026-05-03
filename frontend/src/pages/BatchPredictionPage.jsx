@@ -28,14 +28,14 @@ const CustomTooltip = ({ active, payload }) => {
 // ── CSV Template download ─────────────────────────────────────────────────────
 const downloadTemplate = () => {
   const headers = [
-    "student_id", "Absences_S1", "Mathematiques_1", "Algorithmique_Prog",
+    "Nom", "Prenom", "Absences_S1", "Mathematiques_1", "Algorithmique_Prog",
     "Architecture_Ord", "Electronique_Num", "Reseaux_Info_1", "Anglais_Tech_1",
-    "Francais_Pro_1", "Moyenne_S1", "Absences_S2", "Mathematiques_2",
+    "Francais_Pro_1", "Absences_S2", "Mathematiques_2",
     "Structures_Donnees", "Systemes_Exploitation", "Bases_Donnees",
     "Reseaux_Info_2", "Anglais_Tech_2", "Francais_Pro_2", "PFA_2",
     "Modules_Non_Valides", "Redoublant"
   ].join(",");
-  const example = "123,0,14.5,15,12,11.5,13,16,14,13.5,2,15,14,13.5,16,14.5,15.5,14,16,0,0";
+  const example = "Dupont,Marie,2,14.5,15,12,11.5,13,16,14,3,15,14,13.5,16,14.5,15.5,14,16,0,0";
   const csv = `${headers}\n${example}`;
   const blob = new Blob([csv], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
